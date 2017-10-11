@@ -1,0 +1,154 @@
+#!/usr/bin/env groovy
+
+def pigenRepo = 'https://github.com/softerra/pi-gen.git'
+def pigenBranch = 'refs/heads/iotcrafter'
+def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
+
+def workerJob = 'oprog-img-rpi-build'
+
+properties([disableConcurrentBuilds(),
+			buildDiscarder(
+				logRotator(artifactDaysToKeepStr: '',
+							artifactNumToKeepStr: '',
+							daysToKeepStr: '',
+							numToKeepStr: '3'))
+			])
+
+node {
+	// read last release revision from persistent storage
+	sh """
+		cp -f ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release ${env.WORKSPACE}/ || \
+			echo -n > ${env.WORKSPACE}/${env.JOB_BASE_NAME}-last-release
+	"""
+    def lastReleaseRev = readFile("${env.JOB_BASE_NAME}-last-release").trim()
+
+	// debug
+	println("pigenRepo: ${pigenRepo}")
+	println("pigenBranch: ${pigenBranch}")
+	println("workerJob: ${workerJob}")
+	println("lastReleaseRev: ${lastReleaseRev}")
+
+	def scmVars = []
+
+	def releaseList = []
+    def headInfo = ''
+    def headIsRelease = false
+	def newCommits = false
+
+	stage('Cleanup') {
+		deleteDir()
+	}
+
+	stage('Sources') {
+		scmDesc = [$class: 'GitSCM',
+						branches: [[name: pigenBranch]],
+						doGenerateSubmoduleConfigurations: false,
+						extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'pi-gen']],
+						submoduleCfg: [],
+						userRemoteConfigs: [[url: pigenRepo]]
+					]
+		scmVars = checkout(scmDesc)
+
+		startReleaseRev = lastReleaseRev ?: initialGitRevision
+		newCommits = scmVars.GIT_COMMIT != scmVars.GIT_PREVIOUS_COMMIT
+
+		//debug
+		println("prevCommit: ${scmVars.GIT_PREVIOUS_COMMIT}")
+		println("curCommit: ${scmVars.GIT_COMMIT}")
+		println("startReleaseRev: ${startReleaseRev}")
+		println("newCommits: ${newCommits}")
+
+
+		dir('pi-gen') {
+			sh """
+				# release tag starts with 'YYYY-MM-DD-'
+				git tag -l --contains ${startReleaseRev} --merged | \
+					sed -n '/[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}-/ p' > \
+						${env.WORKSPACE}/tag-list
+
+				echo -n > ${env.WORKSPACE}/release-list
+				cat ${env.WORKSPACE}/tag-list | while read tag; do \
+					abbrev=\$(git rev-parse --short \$tag); \
+					if [ "\$abbrev" != "${startReleaseRev}" ]; then \
+						echo "\${abbrev} \${tag}" >> ${env.WORKSPACE}/release-list; \
+					fi \
+				done
+
+				git tag -l --contains HEAD --merged | \
+					sed -n '/[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}-/ p' | wc -l > \
+						${env.WORKSPACE}/head-is-release
+
+				# current head info (special for ones commented as 'RC: alphanumeric')
+				git describe --tags > ${env.WORKSPACE}/head-info || \
+					git log -1 --date=format:'%F' --format='%h %ad %s' | \
+						sed -n '/[[:space:]]RC:[[:space:]][^[:space:]]*/ {
+								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]]RC:[[:space:]]\\([^[:space:]]*\\).*/\\2-rc.\\3-g\\1/ p
+							}
+							/[[:space:]]RC:[[:space:]][^[:space:]]*/ !{
+								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]].*/\\2-g\\1/ p
+							}' > ${env.WORKSPACE}/head-info
+			"""
+		}
+
+		releaseList = readFile('release-list').split("\n").collect().reverse()
+		headInfo = readFile('head-info').trim()
+		headIsRelease = readFile('head-is-release').toInteger() == 1
+	}
+
+	//debug
+	println("releaseList: ${releaseList}")
+	println("headInfo: ${headInfo}")
+	println("headIsRelease: ${headIsRelease}")
+
+	def built = false
+	def i = 0
+	for (release in releaseList) {
+		if (release == '') {
+			break
+		}
+
+		i++
+		stage("Release-${i}") {
+			releaseCommit = release[0..6]
+			println("Building: ${release}")
+			build([job: workerJob,
+				parameters: [
+					[$class: 'StringParameterValue', name: 'pigenRepo', value: pigenRepo ],
+					[$class: 'StringParameterValue', name: 'buildGitCommit', value: releaseCommit ],
+					[$class: 'StringParameterValue', name: 'buildInfo', value: "${release}" ],
+
+					[$class: 'BooleanParameterValue', name: 'isRelease', value: true ]
+				]
+			])
+
+			// save last release revision
+			sh """
+				echo -n "${releaseCommit}" > ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release
+			"""
+
+			built = true
+		}
+	}
+
+	if (newCommits && !headIsRelease) {
+		stage('Current') {
+			println("Building: ${headInfo}")
+			build([job: workerJob,
+				parameters: [
+					[$class: 'StringParameterValue', name: 'pigenRepo', value: pigenRepo ],
+					[$class: 'StringParameterValue', name: 'buildGitCommit', value: scmVars.GIT_COMMIT ],
+					[$class: 'StringParameterValue', name: 'buildInfo', value: "${headInfo}" ],
+
+					[$class: 'BooleanParameterValue', name: 'isRelease', value: false ]
+				]
+			])
+
+			built = true
+		}
+	}
+
+	if (!built) {
+		println("Nothing new to build")
+	}
+}
+

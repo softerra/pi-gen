@@ -11,6 +11,10 @@ mkdir -p ${ROOTFS_DIR}
 BOOT_SIZE=$(du --apparent-size -s ${EXPORT_ROOTFS_DIR}/boot --block-size=1 | cut -f 1)
 TOTAL_SIZE=$(du --apparent-size -s ${EXPORT_ROOTFS_DIR} --exclude var/cache/apt/archives --block-size=1 | cut -f 1)
 
+# align to sector size
+BOOT_SIZE=$((BOOT_SIZE + 512 - $BOOT_SIZE % 512))
+TOTAL_SIZE=$((TOTAL_SIZE + 512 - $TOTAL_SIZE % 512))
+
 IMG_SIZE=$((BOOT_SIZE + TOTAL_SIZE + (800 * 1024 * 1024)))
 
 truncate -s ${IMG_SIZE} ${IMG_FILE}

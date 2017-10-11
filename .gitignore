@@ -1,5 +1,6 @@
 deploy/*
 work/*
+kernel/*
 config
 postrun.sh
 SKIP

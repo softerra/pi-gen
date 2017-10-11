@@ -1,0 +1,136 @@
+def kernLocalRepo=env.JENKINS_HOME + '/pdata/rpi-kernel'
+def kernelRemoteRepo='https://github.com/raspberrypi/linux.git'
+
+def deploy = ['base': '/var/www/iotcrafter_images']
+
+properties([disableConcurrentBuilds(),
+			buildDiscarder(
+				logRotator(artifactDaysToKeepStr: '',
+						artifactNumToKeepStr: '',
+						daysToKeepStr: '',
+						numToKeepStr: '2')),
+			parameters([
+				string(defaultValue: '', description: '', name: 'pigenRepo'),
+				string(defaultValue: '', description: '', name: 'buildGitCommit'),
+				string(defaultValue: '', description: 'build identification string', name: 'buildInfo'),
+
+				booleanParam(defaultValue: false, description: '', name: 'isRelease'),
+
+				booleanParam(defaultValue: true, description: '', name: 'sysUpgrade'),
+				booleanParam(defaultValue: true, description: '', name: 'rpiUpdate'),
+
+				booleanParam(defaultValue: false, description: 'for debug', name: 'kenelRebuild'),
+				string(defaultValue: '', description: 'for debug', name: 'kernelCommit'),
+				booleanParam(defaultValue: false, description: 'for debug', name: 'continue')
+            ]),
+            pipelineTriggers([])
+        ])
+
+node {
+	//debug
+	println("Params: ${params}")
+
+	if (params.pigenRepo == '') {
+		error('pigenRepo arg is required')
+	}
+	if (params.buildGitCommit == '') {
+		error('buildGitCommit arg is required')
+	}
+	if (params.buildInfo == '') {
+		error('buildInfo arg is required')
+	}
+
+	def buildSuffix = params.isRelease ? '' : '/current'
+	deploy.base += buildSuffix
+
+	def scmVars = []
+
+	stage('KernelSources') {
+		sh """
+			if [ -d "${kernLocalRepo}/linux" ]; then
+				(cd ${kernLocalRepo}/linux; git fetch)
+			else
+				git clone ${kernelRemoteRepo} ${kernLocalRepo}/linux
+			fi
+		"""
+	}
+
+	stage('Sources') {
+		def scmInfo = [$class: 'GitSCM',
+					branches: [[name: params.buildGitCommit]],
+					doGenerateSubmoduleConfigurations: false,
+					extensions: [[$class: 'RelativeTargetDirectory',
+									relativeTargetDir: 'pi-gen']],
+					submoduleCfg: [],
+					userRemoteConfigs: [[url: params.pigenRepo]]]
+
+		if (!params.continue) {
+			scmInfo['extensions'].push([$class: 'CleanBeforeCheckout'])
+		}
+
+		scmVars = checkout(scmInfo)
+
+		conf_upgrade = params.sysUpgrade ? 1 : 0
+		conf_rpi_update = params.rpiUpdate ? 1 : 0
+		conf_kern_rebuild = params.kernelRebuild ? 1 : 0
+		conf_continue = params.continue ? 1 : 0
+
+		dir('pi-gen') {
+			imgDate = params.buildInfo[0..9]
+			imgName = params.buildInfo[11..-1]
+
+			sh """#!/bin/bash
+				cat > config <<EOF
+IMG_DATE=${imgDate}
+IMG_NAME=${imgName}
+WORK_DIR=/pi-gen/work
+
+IOTCRAFTER_UPGRADE=${conf_upgrade}
+IOTCRAFTER_RPI_UPDATE=${conf_rpi_update}
+IOTCRAFTER_ENABLE_UART=1
+IOTCRAFTER_KERNEL_HASH=${params.kernelCommit}
+IOTCRAFTER_KERNEL_DIR=${kernLocalRepo}
+IOTCRAFTER_KERNEL_REBUILD=${conf_kern_rebuild}
+CONTINUE=${conf_continue}
+EOF
+			"""
+			sh """
+				touch stage3/SKIP stage4/SKIP stage5/SKIP
+				rm -f stage2/EXPORT_* stage3/EXPORT_* stage4/EXPORT_* stage5/EXPORT_*
+				rm -f stage2.1/EXPORT_NOOBS
+			"""
+		}
+	}
+
+	stage('Build') {
+		sh """
+			pi-gen/iotcrafter/build-docker-iotcrafter.sh
+		"""
+	}
+
+	stage('Deploy') {
+		dir('pi-gen/deploy/') {
+			sh """
+				CUR_DATE=\$(date +%Y-%m-%d)
+				mkdir -p ${deploy['base']}/\${CUR_DATE}
+
+				# TODO: use normal names of images in the installer
+				ZIP_FNAME=\$(ls image_*-iotc*.zip)
+				cp -f \$ZIP_FNAME ${deploy['base']}/\${CUR_DATE}
+
+				# save pi-gen config for reference
+				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${ZIP_FNAME}.config
+
+				if [ "${params.isRelease}" = "true" ]; then
+					# Install (the latest!) rpi.img.zip for old installer: unzip, rename, zip
+					unzip \${ZIP_FNAME}
+					IMG_FNAME=\$(ls *-iotc*.img)
+					mv -f \$IMG_FNAME rpi.img
+					zip -9 rpi.img.zip rpi.img
+					rm -f rpi.img
+					mv -f rpi.img.zip ${deploy['base']}/\${CUR_DATE}
+				fi
+			"""
+		}
+	}
+}

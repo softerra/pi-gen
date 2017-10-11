@@ -1,0 +1,1 @@
+deb [arch=all,armhf] http://192.168.101.103/jenkins/rpi jessie main
