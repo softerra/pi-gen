@@ -9,6 +9,8 @@ fi
 
 if [ "$IOTCRAFTER_RPI_UPDATE" = "1" ]; then
 	on_chroot << EOF
+mod_dirs=\$(ls /lib/modules)
+mod_dirs_count=\$(ls /lib/modules|wc -w)
 rpi-update
 if [ \$? -eq 0 ]; then
 	if [ -d /lib/modules.bak ]; then
@@ -16,6 +18,11 @@ if [ \$? -eq 0 ]; then
 	fi
 	if [ -d /boot.bak ]; then
 		rm -rf /boot.bak
+	fi
+	cur_mod_dirs_count=\$(ls /lib/modules|wc -w)
+	if [ "\${mod_dirs_count}" = "2" -a "\${cur_mod_dirs_count}" = "4" ]; then
+		echo "Removing old modules: \${mod_dirs}"
+		(cd /lib/modules; rm -rf \${mod_dirs};)
 	fi
 fi
 EOF

@@ -272,13 +272,13 @@ dtbo-$(RPI_DT_OVERLAYS) += '${overlay}'.dtbo
 # $1 = 1|2 (PI1 or PI2)
 makeAll()
 {
+	echo "`date`: Start building kernel and modules for $1"
 	selectPI $1
 
-	echo "`date`: Start bulding kernel and modules for $1"
 	make -j8 $MAKE_OPTS $piMakeOpts && \
 		make -j8 $MAKE_OPTS $piMakeOpts modules_install
 	local rc=$?
-	echo "`date`: Done bulding kernel and modules for $1 (rc=$rc)"
+	echo "`date`: Done building kernel and modules for $1 (rc=$rc)"
 
 	INFO_MSG="RPi $1 build cmd: make $MAKE_OPTS $piMakeOpts\n${INFO_MSG}"
 
