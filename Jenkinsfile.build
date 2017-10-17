@@ -110,16 +110,17 @@ EOF
 
 	stage('Deploy') {
 		dir('pi-gen/deploy/') {
-			sh """
+			sh """#!/bin/bash
 				CUR_DATE=\$(date +%Y-%m-%d)
 				mkdir -p ${deploy['base']}/\${CUR_DATE}
 
 				# TODO: use normal names of images in the installer
 				ZIP_FNAME=\$(ls image_*-iotc*.zip)
-				cp -f \$ZIP_FNAME ${deploy['base']}/\${CUR_DATE}
+				RESULT_FNAME=\${ZIP_FNAME##image_}
+				cp -f \$ZIP_FNAME ${deploy['base']}/\${CUR_DATE}/\${RESULT_FNAME}
 
 				# save pi-gen config for reference
-				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${ZIP_FNAME}.config
+				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${RESULT_FNAME%%.zip}.config
 
 				if [ "${params.isRelease}" = "true" ]; then
 					# Install (the latest!) rpi.img.zip for old installer: unzip, rename, zip
