@@ -110,12 +110,13 @@ node {
 		i++
 		stage("Release-${i}") {
 			releaseCommit = release[0..6]
+			releaseInfo = release[8..-1]
 			println("Building: ${release}")
 			build([job: workerJob,
 				parameters: [
 					[$class: 'StringParameterValue', name: 'pigenRepo', value: pigenRepo ],
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: releaseCommit ],
-					[$class: 'StringParameterValue', name: 'buildInfo', value: "${release}" ],
+					[$class: 'StringParameterValue', name: 'buildInfo', value: "${releaseInfo}" ],
 
 					[$class: 'BooleanParameterValue', name: 'isRelease', value: true ]
 				]
