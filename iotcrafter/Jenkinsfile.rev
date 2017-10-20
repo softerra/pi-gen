@@ -1,9 +1,6 @@
 #!/usr/bin/env groovy
 
-def pigenRepo = 'https://github.com/softerra/pi-gen.git'
-def pigenBranch = 'refs/heads/iotcrafter'
 def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
-
 def workerJob = 'oprog-img-rpi-build'
 
 properties([disableConcurrentBuilds(),
@@ -15,31 +12,30 @@ properties([disableConcurrentBuilds(),
 			])
 
 node {
-	// read last release revision from persistent storage
-	sh """
-		cp -f ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release ${env.WORKSPACE}/ || \
-			echo -n > ${env.WORKSPACE}/${env.JOB_BASE_NAME}-last-release
-	"""
-    def lastReleaseRev = readFile("${env.JOB_BASE_NAME}-last-release").trim()
-
-	// debug
-	println("pigenRepo: ${pigenRepo}")
-	println("pigenBranch: ${pigenBranch}")
-	println("workerJob: ${workerJob}")
-	println("lastReleaseRev: ${lastReleaseRev}")
-
-	def scmVars = []
-
-	def releaseList = []
-    def headInfo = ''
-    def headIsRelease = false
-	def newCommits = false
-
 	stage('Cleanup') {
 		deleteDir()
 	}
 
+	def pigenRepo = ''
+	def pigenBranch = ''
+	def scmVars = []
+
+	def releaseList = []
+	def headInfo = ''
+	def headIsRelease = false
+	def newCommits = false
+
 	stage('Sources') {
+		// use the same repo URL and branch as ones of this Jenkinsfile script
+		def repoDef = scm.getUserRemoteConfigs()[0]
+		pigenRepo = repoDef.getUrl()
+		def branchDef = scm.getBranches()[0]
+		pigenBranch = branchDef.getName()
+
+		// debug
+		println("pigenRepo: ${pigenRepo}")
+		println("pigenBranch: ${pigenBranch}")
+
 		scmDesc = [$class: 'GitSCM',
 						branches: [[name: pigenBranch]],
 						doGenerateSubmoduleConfigurations: false,
@@ -49,15 +45,21 @@ node {
 					]
 		scmVars = checkout(scmDesc)
 
-		startReleaseRev = lastReleaseRev ?: initialGitRevision
+		// read last release revision from persistent storage
+		sh """
+			cp -f ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release ${env.WORKSPACE}/ || \
+				echo -n > ${env.WORKSPACE}/${env.JOB_BASE_NAME}-last-release
+		"""
+		def lastReleaseRev = readFile("${env.JOB_BASE_NAME}-last-release").trim()
+		def startReleaseRev = lastReleaseRev ?: initialGitRevision
 		newCommits = scmVars.GIT_COMMIT != scmVars.GIT_PREVIOUS_COMMIT
 
 		//debug
+		println("lastReleaseRev: ${lastReleaseRev}")
 		println("prevCommit: ${scmVars.GIT_PREVIOUS_COMMIT}")
 		println("curCommit: ${scmVars.GIT_COMMIT}")
 		println("startReleaseRev: ${startReleaseRev}")
 		println("newCommits: ${newCommits}")
-
 
 		dir('pi-gen') {
 			sh """
@@ -99,6 +101,7 @@ node {
 	println("releaseList: ${releaseList}")
 	println("headInfo: ${headInfo}")
 	println("headIsRelease: ${headIsRelease}")
+	println("workerJob: ${workerJob}")
 
 	def built = false
 	def i = 0

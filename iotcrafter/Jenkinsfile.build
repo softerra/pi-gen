@@ -73,6 +73,7 @@ node {
 		conf_upgrade = params.sysUpgrade ? 1 : 0
 		conf_rpi_update = params.rpiUpdate ? 1 : 0
 		conf_kern_rebuild = params.kernelRebuild ? 1 : 0
+		conf_is_release = params.isRelease ? 1 : 0
 		conf_continue = params.continue ? 1 : 0
 
 		dir('pi-gen') {
@@ -91,6 +92,7 @@ IOTCRAFTER_ENABLE_UART=1
 IOTCRAFTER_KERNEL_HASH=${params.kernelCommit}
 IOTCRAFTER_KERNEL_DIR=${kernLocalRepo}
 IOTCRAFTER_KERNEL_REBUILD=${conf_kern_rebuild}
+IOTCRAFTER_IS_RELEASE=${conf_is_release}
 CONTINUE=${conf_continue}
 EOF
 			"""

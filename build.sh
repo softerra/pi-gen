@@ -158,12 +158,7 @@ export QUILT_NO_DIFF_INDEX=1
 export QUILT_NO_DIFF_TIMESTAMPS=1
 export QUILT_REFRESH_ARGS="-p ab"
 
-export IOTCRAFTER_UPGRADE
-export IOTCRAFTER_RPI_UPDATE
-export IOTCRAFTER_ENABLE_UART
-export IOTCRAFTER_KERNEL_HASH
-export IOTCRAFTER_KERNEL_DIR
-export IOTCRAFTER_KERNEL_REBUILD
+. ${BASE_DIR}/iotcrafter/config-variables
 
 source ${SCRIPT_DIR}/common
 source ${SCRIPT_DIR}/dependencies_check
