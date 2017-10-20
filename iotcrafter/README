@@ -1,0 +1,94 @@
+=======================
+Iotcrafter Docker Build
+=======================
+* in a docker container (based on oprog-timer/cross-build-armv7l:stretch, which is based on debian:stretch)
+* based on pi-gen's docker build:
+* initiated by running build-docker-iotcrafter.sh
+	- build/update docker image
+	- in the container
+		- run pi-gen's build.sh
+		- get RC code
+		- run postbuild.sh with the RC code
+*** build.sh
+	- modified to include iotcrafter's variables exports
+*** export-image/prerun.sh modified
++# align to sector size
++BOOT_SIZE=$((BOOT_SIZE + 512 - $BOOT_SIZE % 512))
++TOTAL_SIZE=$((TOTAL_SIZE + 512 - $TOTAL_SIZE % 512))
+
+This is done in order to make the resulting image file aligned to 512 bytes (sector size)
+which itself allows to find iotcrafter's data (with board key, wifi credentials etc)
+attached to the image by the installer right after the last sector of rootfs partition
+
+*** postbuild.sh
+	- saves RC code so build-docker-iotcrafter.sh can analyze it
+	- restore ownership of produced files (they are created in the container by root)
+* assumed that SKIP_ and EXPORT_ files are prepared so the next stages are built/exported
+	- stage0	- build
+	- stage1	- build
+	- stage2	- build
+	- stage2.1	- build & export
+
+Stage2.1
+--------
+00-sys-upgrade
+	- conditionally
+		- $IOTCRAFTER_UPGRADE: apt-get upgrade
+		- $IOTCRAFTER_RPI_UPDATE:rpi-update
+01-install-iotcrafter
+	- install nodejs (version is defined in the script)
+	- install iotcrafter.list apt source
+	- install iotc-core, iotc-ide
+		TODO: ??
+			- for release install fixed versions
+			- for current build, install current versions
+	- install iotc_init.sh
+	- embed call of iotc_init.sh into /usr/lib/raspi-config/init_resize.sh
+	- conditionally:
+		- $IOTCRAFTER_ENABLE_UART:enable UART output
+	- edit /etc/network/interfaces (the template is then used by iotc-init.sh to specify credentials passed by installer):
+
+allow-hotplug wlan0
+iface wlan0 inet dhcp
+    wpa-ssid ssid
+    wpa-psk key
+
+02-sys-tweaks
+	- enable ssh server
+03-kernel-upgrade
+	- build own kernel with supported modules and overlays using the revision of the kernel
+		installed into rootfs at the moment (i.e. by stage0-stage2 or rpi-update)
+
+==========================
+Automatic build by Jenkins
+==========================
+
+Jenkins build is organized by two jobs:
+	Jenkinsfile.rev -
+		master josb which determines revision/revisions to be built and
+		runs the slave job for every one revision picked out
+		- list tags 'YYYY-MM-DD-*' since the last release =>  list of 'release' revisions to build
+		- determine whether HEAD is 'release'(tagged appropriately), if not - 'current' revision to build
+		- determinename of HEAD revision as 
+			- <tag>-N-g<commit>						by 'git describe --tags' (note, tag starts from  YYYY-MM-DD-)
+			- YYYY-MM-DD-rc.<comment>-g<commit>		by git log if comment looks like RC: <comment> ...
+			- YYYY-MM-DD-g<commit>					by git log if comment is other
+	Jenkinsfile.build -
+		slave/worker job which actually performs the build of a revision
+			- gets params from master job (repo, revision to build etc)
+			- prepares config file for pi-gen's build.sh
+			- prepares SKIP_ and EXPORT_ filesas decribed above
+			- runs iotcrafter/build-docker-iotcrafter.sh
+			- copies result images to pre-defined dirs:
+				- 'release' => deploy[base]/CURDATE/YYYY-MM-DD-XX...XX-iotcrafter.zip
+							=> deploy[base]/CURDATE/rpi.img.zip (for old installer)
+				- 'current' => deploy[base]/current/CURDATE/YYYY-MM-DD-XX...XX-iotcrafter.zip
+
+Jenkins setup:
+* Create a pipeline for Jenkinsfile.rev
+* Create a pipeline for Jenkinsfile.build - !!! the name of the job should be 
+	equal to the name defined in Jenkinsfile.rev by workerJob variable
+
+NOTE: the jobs require a number of access approvals
+
+TODO: ?? make a pipeline for quick generation of all required approval requests
