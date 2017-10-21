@@ -7,4 +7,6 @@ uname -a # check cpu
 
 apt-get -y update
 apt-get -y --force-yes install iotc-core iotc-ide
+
+dpkg-reconfigure -fnoninteractive -plow unattended-upgrades
 EOF
