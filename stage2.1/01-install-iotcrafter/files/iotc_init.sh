@@ -1,16 +1,29 @@
 #!/bin/sh
 
-# The script runs once at the first start of the board
-# For BB is called from uEnv.txt:
-#	cmdline=init=/opt/iotc/bin/iotc_init.sh
-# For RPi, from usr/lib/raspi-config/init_resize.sh
-#	/opt/iotc/bin/iotc_init.sh <root-dev> <root-part-end>
+# RUN modes:
+# - pure 'init' process, without parameters
+#		For BeagleBone from uEnv.txt: cmdline=init=/opt/iotc/bin/iotc_init.sh
+# - with parameters
+#		- #$1 = 'test'		- test call
+#		- $1 = 'local'		- switch to 'local' configuration
+#		- $1 = 'production	- switch to 'production' configuration
+#		- $1 = 'show'		- show current config settings
+#		- * $1 is <root-dev>, $2 is <root-part-end> - called from init Raspberry Pi's init script
+#			from /usr/lib/raspi-config/init_resize.sh
+#			<root-dev> - rootfs device
+#			<root-part-end> - last 512b sector of the rootfs
 #
-# There is a test run possible:
-#	# /opt/iotc/bin/iotc_init.sh test
-# in this case /opt/iotc/run/iotcdata.bin is parsed and key/network set up
+# When run atumatically (for BBB or RPi), it assumes that iotcrafter init data (up to 512b) is placed 
+# right after the last rootfs sector. The data is copied to $OPROG_DATA file.
+# Then the data is taken from the file and placed to the respective configuration files:
+#	- board key -> boardconfig.json
+#	- wifi ssid and pass -> /etc/network/instarfaces
+#	- signature	-> selects between local or production options
+
+iotc_init_version=1
 
 OPROG_SIGNATURE='iotcrafter.com'
+OPROG_SIGNATURE_LOCAL='softerra.llc'
 OPROG_DATA=/opt/iotc/run/iotcdata.bin
 OPROG_CONNMAN=/opt/iotc/run/iotc.connman
 OPROG_BOARDCONF=/opt/iotc/etc/boardconfig.json
@@ -19,10 +32,65 @@ BOARD=
 # use ifup even for the system with connman
 OPROG_WLAN_FORCE_IFUP=1
 
+CONF_BAK_DIR=/opt/iotc/run/conf.back
+CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/iotc"
+CONF_LOCAL_NODE_OTA="http:\/\/192.168.101.103\/iotc-ota\/"
+CONF_LOCAL_SERVER="http:\/\/192.168.101.105:9000"
+
+CONF_MODE=
+
 get_board()
 {
 	BOARD=$(cat /proc/device-tree/model | sed "s/ /_/g" | tr -d '\000')
-	echo "Board is: '$BOARD'"
+	echo "Board: '$BOARD', mypid=$$"
+}
+get_conf_mode()
+{
+	CONF_MODE=$([ -d "$CONF_BAK_DIR" ] && echo -n "Local" || echo -n "Production")
+}
+
+backup_item()
+{
+	tdir=${CONF_BAK_DIR}$(dirname $1)
+	mkdir -p $tdir
+	cp -Rf $1 $tdir
+}
+
+switch_config_local()
+{
+	if [ -d "$CONF_BAK_DIR" ]; then
+		echo "$CONF_BAK_DIR dir found: seems already in local confguration mode"
+		return 0
+	fi
+
+	backup_item /etc/apt/sources.list.d/iotcrafter.list
+	backup_item /etc/default/iotc_updater
+	backup_item /opt/iotc/etc/boardconfig.json
+
+	sed -i 's/http.*\(\/[[:alpha:]]*\)/'$CONF_LOCAL_APT_SOURCE'\1/' /etc/apt/sources.list.d/iotcrafter.list
+	sed -i 's/^SOURCE=.*$/SOURCE='${CONF_LOCAL_NODE_OTA}'/' /etc/default/iotc_updater
+	sed -i 's/"server"[^"]*"[^"]*\(".*\)$/"server": "'${CONF_LOCAL_SERVER}'\1/' /opt/iotc/etc/boardconfig.json
+	echo "Config switched to Local"
+}
+
+switch_config_production()
+{
+	if [ -d "$CONF_BAK_DIR" ]; then
+		(cd $CONF_BAK_DIR;\
+			cp -Rf * /;)
+		rm -rf $CONF_BAK_DIR
+		echo "Config switched to Production"
+	fi
+}
+
+show_config()
+{
+	echo "Current config: ${CONF_MODE}"
+	echo "iotcrafter.list: $(cat /etc/apt/sources.list.d/iotcrafter.list)"
+	line=$(sed -n '/^SOURCE/ p' /etc/default/iotc_updater)
+	echo "iotc_updater SOURCE: $line"
+	line=$(sed -n '/"server"/ p' /opt/iotc/etc/boardconfig.json)
+	echo "boardconfig.json server: $line"
 }
 
 check_commands () {
@@ -279,12 +347,15 @@ process_oprog_data()
 	done
 
 	# Verify and use/reject
-	if [ "$sig" = "$OPROG_SIGNATURE" ]; then
+	if [ "$sig" = "$OPROG_SIGNATURE" -o "$sig" = "$OPROG_SIGNATURE_LOCAL" ]; then
 		echo "iotcrafter signature found"
 		setup_key $key
 		setup_network "$ssid" "$pwd"
+		if [ "$sig" = "$OPROG_SIGNATURE_LOCAL" ]; then
+			switch_config_local
+		fi
 	fi
-	echo "iotcdata processed"
+	echo "iotcrafter data processed"
 }
 
 # no params
@@ -348,9 +419,11 @@ init_chip()
 	setup_network "$2" "$3"
 }
 
+
 # START
+echo "iotc_init.sh version: ${iotc_init_version}"
 get_board
-echo "Board: '$BOARD', mypid=$$"
+get_conf_mode
 
 if [ $# -eq 0 ]; then
 	# run as main script(BB, uEnv.txt: init=.../iotc_init.sh)
@@ -364,10 +437,27 @@ if [ $# -eq 0 ]; then
 else
 	# run as a helper(RPi, init=.../init_resize.sh -> /opt/iotc/bin/iotc_init.sh /dev/mmcblk0 123456)
 
-	if [ "$1" = "test" ]; then
-		process_oprog_data
-		exit 0
-	fi
+	case "$1" in
+		test)
+			process_oprog_data
+			exit 0
+		;;
+		local|production)
+			set -e
+			prev_mode=$CONF_MODE
+			switch_config_$1
+			get_conf_mode
+
+			[ "$prev_mode" != "$CONF_MODE" ] && \
+				echo "CONFIGURATION SWITCHED TO '$CONF_MODE'" && \
+				echo "REBOOT THE BOARD IS REQUIRED!"
+			exit 0
+		;;
+		show)
+			show_config
+			exit 0
+		;;
+	esac
 
 	case "$BOARD" in
 		"NextThing_C.H.I.P.")
