@@ -2,9 +2,10 @@
 
 # install init script
 # ver.1
-IOTC_INIT_REV=06038154cbefce46b697edb20afcbfa0a9557d2d
-wget -P ${STAGE_WORK_DIR}/files/ https://raw.githubusercontent.com/softerra/iotc_scripts/${IOTC_INIT_REV}/board/iotc_init.sh
-install -m 755 ${STAGE_WORK_DIR}/files/iotc_init.sh ${ROOTFS_DIR}/opt/iotc/bin/
+IOTC_INIT_REV=90079e35ba2ef0ee6c733158d30878a1f60aed02
+wget -P ${ROOTFS_DIR}/opt/iotc/bin/ https://raw.githubusercontent.com/softerra/iotc_scripts/${IOTC_INIT_REV}/board/iotc_init.sh
+sed -i 's/^\(iotc_init_version=\).*$/\1"'${IOTC_INIT_REV}'"/' ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
+chmod 755 ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
 
 # embed into RPi's first start script,
 # which is /usr/lib/raspi-config/init_resize.sh,
