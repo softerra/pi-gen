@@ -10,7 +10,7 @@ properties([disableConcurrentBuilds(),
 						daysToKeepStr: '',
 						numToKeepStr: '2')),
 			parameters([
-				string(defaultValue: '', description: '', name: 'pigenRepo'),
+				string(defaultValue: '', description: '', name: 'bsRepo'),
 				string(defaultValue: '', description: '', name: 'buildGitCommit'),
 				string(defaultValue: '', description: 'build identification string', name: 'buildInfo'),
 
@@ -30,8 +30,8 @@ node {
 	//debug
 	println("Params: ${params}")
 
-	if (params.pigenRepo == '') {
-		error('pigenRepo arg is required')
+	if (params.bsRepo == '') {
+		error('bsRepo arg is required')
 	}
 	if (params.buildGitCommit == '') {
 		error('buildGitCommit arg is required')
@@ -62,7 +62,7 @@ node {
 					extensions: [[$class: 'RelativeTargetDirectory',
 									relativeTargetDir: 'pi-gen']],
 					submoduleCfg: [],
-					userRemoteConfigs: [[url: params.pigenRepo]]]
+					userRemoteConfigs: [[url: params.bsRepo]]]
 
 		if (!params.continue) {
 			scmInfo['extensions'].push([$class: 'CleanBeforeCheckout'])

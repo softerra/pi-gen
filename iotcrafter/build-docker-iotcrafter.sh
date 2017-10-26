@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
-DOCKER_IMG="pi-gen-iotcrafter"
+BUILD_SYS="pi-gen"
+DOCKER_IMG="${BUILD_SYS}-iotcrafter"
 DOCKER_IMG_TAG="stretch"
 DOCKER="docker"
 DOCKER_CONTAINER_SUFFIX=${1:-iotc}
@@ -40,7 +41,7 @@ $DOCKER build \
 	-f iotcrafter/Dockerfile.iotcrafter iotcrafter/
 $DOCKER rmi $(docker images -f "dangling=true" -q) || true
 
-CONTAINER_NAME="pi-gen_${DOCKER_CONTAINER_SUFFIX}_work"
+CONTAINER_NAME="${BUILD_SYS}_${DOCKER_CONTAINER_SUFFIX}_work"
 CONTAINER_EXISTS=$($DOCKER ps -a --filter name="$CONTAINER_NAME" -q)
 CONTAINER_RUNNING=$($DOCKER ps --filter name="$CONTAINER_NAME" -q)
 
@@ -49,7 +50,7 @@ if [ "$CONTAINER_RUNNING" != "" ]; then
 	exit 1
 fi
 
-mkdir work
+mkdir -p work
 buildCommand="dpkg-reconfigure qemu-user-static && ./build.sh; \
 				BUILD_RC=\$?; \
 				rsync -av work/build.log deploy/; \
@@ -64,7 +65,7 @@ if [ "$CONTAINER_EXISTS" != "" ] && [ "$CONTINUE" = "1" ]; then
 		--name "${CONTAINER_NAME}_cont" \
 		-e IMG_NAME=${IMG_NAME} \
 		${kernelMount} \
-		-v "$(pwd):/pi-gen" -w "/pi-gen" \
+		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
 		$DOCKER_IMG:$DOCKER_IMG_TAG \
 		bash -o pipefail -c "${buildCommand}" &
 	wait
@@ -88,7 +89,7 @@ else
 		--name "${CONTAINER_NAME}" \
 		-e IMG_NAME=${IMG_NAME} \
 		${kernelMount} \
-		-v "$(pwd):/pi-gen" -w "/pi-gen" \
+		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
 		$DOCKER_IMG:$DOCKER_IMG_TAG \
 		bash -o pipefail -c "${buildCommand}" &
 	wait
@@ -99,6 +100,6 @@ rmdir work
 build_rc=$(cat iotcrafter/build_rc)
 rm -f iotcrafter/build_rc
 
-echo "Done! RC=${build_rc}. Your image(s) should be in deploy/ on success"
+echo "Done. RC=${build_rc}. Your image(s) should be in deploy/ on success"
 
 exit ${build_rc:-1}

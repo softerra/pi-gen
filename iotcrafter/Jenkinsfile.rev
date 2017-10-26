@@ -8,16 +8,22 @@ properties([disableConcurrentBuilds(),
 				logRotator(artifactDaysToKeepStr: '',
 							artifactNumToKeepStr: '',
 							daysToKeepStr: '',
-							numToKeepStr: '3'))
+							numToKeepStr: '3')),
+			parameters([
+				string(defaultValue: '',
+						description: 'if specified, overrides the commit which used as a start for looking for releases',
+						name: 'initialReleaseRevision')
 			])
+
+		])
 
 node {
 	stage('Cleanup') {
 		deleteDir()
 	}
 
-	def pigenRepo = ''
-	def pigenBranch = ''
+	def bsRepo = ''
+	def bsBranch = ''
 	def scmVars = []
 
 	def releaseList = []
@@ -28,20 +34,20 @@ node {
 	stage('Sources') {
 		// use the same repo URL and branch as ones of this Jenkinsfile script
 		def repoDef = scm.getUserRemoteConfigs()[0]
-		pigenRepo = repoDef.getUrl()
+		bsRepo = repoDef.getUrl()
 		def branchDef = scm.getBranches()[0]
-		pigenBranch = branchDef.getName()
+		bsBranch = branchDef.getName()
 
 		// debug
-		println("pigenRepo: ${pigenRepo}")
-		println("pigenBranch: ${pigenBranch}")
+		println("bsRepo: ${bsRepo}")
+		println("bsBranch: ${bsBranch}")
 
 		scmDesc = [$class: 'GitSCM',
-						branches: [[name: pigenBranch]],
+						branches: [[name: bsBranch]],
 						doGenerateSubmoduleConfigurations: false,
 						extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'pi-gen']],
 						submoduleCfg: [],
-						userRemoteConfigs: [[url: pigenRepo]]
+						userRemoteConfigs: [[url: bsRepo]]
 					]
 		scmVars = checkout(scmDesc)
 
@@ -52,6 +58,10 @@ node {
 		"""
 		def lastReleaseRev = readFile("${env.JOB_BASE_NAME}-last-release").trim()
 		def startReleaseRev = lastReleaseRev ?: initialGitRevision
+		if (params.initialReleaseRevision != '') {
+			println("Override start revision to look for releases from: ${params.initialReleaseRevision} instead of ${startReleaseRev}")
+			startReleaseRev = params.initialReleaseRevision
+		}
 		newCommits = scmVars.GIT_COMMIT != scmVars.GIT_PREVIOUS_COMMIT
 
 		//debug
@@ -81,13 +91,13 @@ node {
 						${env.WORKSPACE}/head-is-release
 
 				# current head info (special for ones commented as 'RC: alphanumeric')
-				git describe --tags > ${env.WORKSPACE}/head-info || \
+				git describe --tags --contains ${initialGitRevision} > ${env.WORKSPACE}/head-info || \
 					git log -1 --date=format:'%F' --format='%h %ad %s' | \
 						sed -n '/[[:space:]]RC:[[:space:]][^[:space:]]*/ {
-								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]]RC:[[:space:]]\\([^[:space:]]*\\).*/\\2-rc.\\3-g\\1/ p
+								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]]RC:[[:space:]]\\([^[:space:]]*\\).*/\\2-rc.\\3.raspbian-g\\1/ p
 							}
 							/[[:space:]]RC:[[:space:]][^[:space:]]*/ !{
-								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]].*/\\2-g\\1/ p
+								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]].*/\\2-raspbian-g\\1/ p
 							}' > ${env.WORKSPACE}/head-info
 			"""
 		}
@@ -117,9 +127,9 @@ node {
 			println("Building: ${release}")
 			build([job: workerJob,
 				parameters: [
-					[$class: 'StringParameterValue', name: 'pigenRepo', value: pigenRepo ],
+					[$class: 'StringParameterValue', name: 'bsRepo', value: bsRepo ],
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: releaseCommit ],
-					[$class: 'StringParameterValue', name: 'buildInfo', value: "${releaseInfo}" ],
+					[$class: 'StringParameterValue', name: 'buildInfo', value: releaseInfo ],
 
 					[$class: 'BooleanParameterValue', name: 'isRelease', value: true ]
 				]
@@ -139,9 +149,9 @@ node {
 			println("Building: ${headInfo}")
 			build([job: workerJob,
 				parameters: [
-					[$class: 'StringParameterValue', name: 'pigenRepo', value: pigenRepo ],
+					[$class: 'StringParameterValue', name: 'bsRepo', value: bsRepo ],
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: scmVars.GIT_COMMIT ],
-					[$class: 'StringParameterValue', name: 'buildInfo', value: "${headInfo}" ],
+					[$class: 'StringParameterValue', name: 'buildInfo', value: headInfo ],
 
 					[$class: 'BooleanParameterValue', name: 'isRelease', value: false ]
 				]

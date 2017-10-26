@@ -3,6 +3,8 @@ Iotcrafter Docker Build
 =======================
 * in a docker container (based on oprog-timer/cross-build-armv7l:stretch, which is based on debian:stretch)
 * based on pi-gen's docker build:
+** but the containter's image does not include pi-gen sources,
+  instead they are mounted (therefore no need for separate mount of config file)
 * initiated by running build-docker-iotcrafter.sh
 	- build/update docker image
 	- in the container
@@ -63,16 +65,36 @@ iface wlan0 inet dhcp
 Automatic build by Jenkins
 ==========================
 
+------------
+Image naming
+------------
+* Release
+YYYY-MM-DD-yyyymmmdd.raspbian.debdist-iotcrafter.img
+* Current
+YYYY-MM-DD-yyyymmmdd.raspbian.debdist-N-g<abbrev>-iotcrafter.img	- offset from release
+YYYY-MM-DD-rc.<comment>.raspbian-g<abbrev>-iotcrafter.img			- commented release candidate
+YYYY-MM-DD-raspbian-g<abbrev>-iotcrafter.img						- general name
+
+* YYYY-MM-DD-yyyymmmdd.raspbian.debdist:
+	** explicitely assigned tag to our release
+	** consists of release date and
+	respective tag of the releasse of Raspbian our release is based on,
+	'-' are changed for '.' in the Raspbian tag
+* YYYY-MM-DD - date of the commit, abbrev - is commit abbrev (used when git desribe --tags fails)
+* -iotcrafter - suffix added by stage2.1
+* debdist - is jessie,strecth,etc
+
 Jenkins build is organized by two jobs:
 	Jenkinsfile.rev -
 		master josb which determines revision/revisions to be built and
 		runs the slave job for every one revision picked out
 		- list tags 'YYYY-MM-DD-*' since the last release =>  list of 'release' revisions to build
 		- determine whether HEAD is 'release'(tagged appropriately), if not - 'current' revision to build
-		- determinename of HEAD revision as 
-			- <tag>-N-g<commit>						by 'git describe --tags' (note, tag starts from  YYYY-MM-DD-)
-			- YYYY-MM-DD-rc.<comment>-g<commit>		by git log if comment looks like RC: <comment> ...
-			- YYYY-MM-DD-g<commit>					by git log if comment is other
+		- determine name of HEAD revision as
+			- <YYYY-MM-DD-*tag>								by 'git describe --tags' (assume tags are YYYY-MM-DD-*)
+			- <YYYY-MM-DD-*tag>-N-g<commit>					by 'git describe --tags'
+			- YYYY-MM-DD-rc.<comment>.raspbian-g<commit>	by git log if comment looks like RC: <comment> ...
+			- YYYY-MM-DD-raspbian-g<commit>					by git log if comment is other
 	Jenkinsfile.build -
 		slave/worker job which actually performs the build of a revision
 			- gets params from master job (repo, revision to build etc)
@@ -86,7 +108,7 @@ Jenkins build is organized by two jobs:
 
 Jenkins setup:
 * Create a pipeline for Jenkinsfile.rev
-* Create a pipeline for Jenkinsfile.build - !!! the name of the job should be 
+* Create a pipeline for Jenkinsfile.build - !!! the name of the job should be
 	equal to the name defined in Jenkinsfile.rev by workerJob variable
 
 NOTE: the jobs require a number of access approvals
