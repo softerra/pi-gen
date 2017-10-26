@@ -99,6 +99,6 @@ rmdir work
 build_rc=$(cat iotcrafter/build_rc)
 rm -f iotcrafter/build_rc
 
-echo "Done! RC=${build_rc}. Your image(s) should be in deploy/"
+echo "Done! RC=${build_rc}. Your image(s) should be in deploy/ on success"
 
 exit ${build_rc:-1}
