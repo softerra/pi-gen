@@ -91,7 +91,7 @@ node {
 						${env.WORKSPACE}/head-is-release
 
 				# current head info (special for ones commented as 'RC: alphanumeric')
-				git describe --tags --contains ${initialGitRevision} > ${env.WORKSPACE}/head-info || \
+				git describe --tags --first-parent | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}-' > ${env.WORKSPACE}/head-info || \
 					git log -1 --date=format:'%F' --format='%h %ad %s' | \
 						sed -n '/[[:space:]]RC:[[:space:]][^[:space:]]*/ {
 								s/\\([[:alnum:]]*\\)[[:space:]]\\([^[:space:]]*\\)[[:space:]]RC:[[:space:]]\\([^[:space:]]*\\).*/\\2-rc.\\3.raspbian-g\\1/ p
