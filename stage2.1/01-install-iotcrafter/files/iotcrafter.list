@@ -1,1 +1,1 @@
-deb [arch=all,armhf] http://iotcrafter.com:8888/iotc/rpi jessie main
+deb [arch=all,armhf] http://iotcrafter.com:8888/iotc/rpi stretch main
