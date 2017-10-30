@@ -1,7 +1,7 @@
 #!/usr/bin/env groovy
 
 def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
-def workerJob = 'oprog-img-rpi-build'
+def workerJob = 'oprog-img-rpi-build.jessie'
 
 properties([disableConcurrentBuilds(),
 			buildDiscarder(
