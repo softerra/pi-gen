@@ -106,7 +106,7 @@ EOF
 
 	stage('Build') {
 		sh """
-			pi-gen/iotcrafter/build-docker-iotcrafter.sh
+			pi-gen/iotcrafter/build-docker-iotcrafter.sh 'iotc.jessie'
 		"""
 	}
 
