@@ -1,7 +1,8 @@
 def kernLocalRepo=env.JENKINS_HOME + '/pdata/rpi-kernel'
 def kernelRemoteRepo='https://github.com/raspberrypi/linux.git'
 
-def deploy = ['base': '/var/www/iotcrafter_images']
+def deploy = ['base': '/var/www/jenkins/board_images',
+				'old_base': '/var/www/iotcrafter_images' ]
 
 properties([disableConcurrentBuilds(),
 			buildDiscarder(
@@ -118,20 +119,29 @@ EOF
 
 				# TODO: use normal names of images in the installer
 				ZIP_FNAME=\$(ls image_*-iotc*.zip)
-				RESULT_FNAME=\${ZIP_FNAME##image_}
-				cp -f \$ZIP_FNAME ${deploy['base']}/\${CUR_DATE}/\${RESULT_FNAME}
+				RESULT_ZIP_FNAME=\${ZIP_FNAME##image_}
+
+				mv -f \$ZIP_FNAME \$RESULT_ZIP_FNAME
+
+				sha256sum \$RESULT_ZIP_FNAME > \${RESULT_ZIP_FNAME}.sha256sum
+
+				cp -f \$RESULT_ZIP_FNAME ${deploy['base']}/\${CUR_DATE}/
+				cp -f \${RESULT_ZIP_FNAME}.sha256sum ${deploy['base']}/\${CUR_DATE}/
 
 				# save pi-gen config for reference
-				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${RESULT_FNAME%%.zip}.config
+				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${RESULT_ZIP_FNAME}.config
 
 				if [ "${params.isRelease}" = "true" ]; then
+					mkdir -p ${deploy['old_base']}/\${CUR_DATE}
+
 					# Install (the latest!) rpi.img.zip for old installer: unzip, rename, zip
-					unzip \${ZIP_FNAME}
-					IMG_FNAME=\$(ls *-iotc*.img)
-					mv -f \$IMG_FNAME rpi.img
+					unzip \${RESULT_ZIP_FNAME}
+					RESULT_IMG_FNAME=\$(ls *-iotc*.img)
+
+					mv -f \$RESULT_IMG_FNAME rpi.img
 					zip -9 rpi.img.zip rpi.img
 					rm -f rpi.img
-					mv -f rpi.img.zip ${deploy['base']}/\${CUR_DATE}
+					mv -f rpi.img.zip ${deploy['old_base']}/\${CUR_DATE}
 				fi
 			"""
 		}
