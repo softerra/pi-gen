@@ -10,6 +10,7 @@ properties([disableConcurrentBuilds(),
 							daysToKeepStr: '',
 							numToKeepStr: '3')),
 			parameters([
+				booleanParam(defaultValue: false, description: 'force rebuild HEAD revision', name: 'rebuildCurrent'),
 				string(defaultValue: '',
 						description: 'if specified, overrides the commit which used as a start for looking for releases',
 						name: 'initialReleaseRevision')
@@ -70,6 +71,18 @@ node {
 		println("curCommit: ${scmVars.GIT_COMMIT}")
 		println("startReleaseRev: ${startReleaseRev}")
 		println("newCommits: ${newCommits}")
+
+		if (params.rebuildCurrent) {
+			newCommits = true	// if HEAD is not release then build as 'Current'
+			if (startReleaseRev == scmVars.GIT_COMMIT) {
+				// use as start revision the revision before it, so this release will be selected
+				// TODO: may it select the start revision if it is also 'release'??
+				startReleaseRev += '^'
+			}
+			println("Forced to rebuild HEAD revision")
+			println("startReleaseRev: ${startReleaseRev}")
+			println("newCommits: ${newCommits}")
+		}
 
 		dir('pi-gen') {
 			sh """
