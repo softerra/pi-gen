@@ -6,13 +6,14 @@ on_chroot << EOF
 uname -a # check cpu
 
 apt-get -y update
+
 echo iotc iotc/cpuid string RPI | debconf-set-selections
-echo iotc iotc/load-overlays boolean false | debconf-set-selections
 #echo iotc iotc/kernvers string {kern_version} | debconf-set-selections
+echo iotc iotc/load-overlays boolean false | debconf-set-selections
+
 apt-get -y --allow-unauthenticated install iotc-core iotc-ide
+dpkg-reconfigure -fnoninteractive -plow unattended-upgrades
 
 # remove all iotc's settings
 echo PURGE | debconf-communicate iotc
-
-dpkg-reconfigure -fnoninteractive -plow unattended-upgrades
 EOF
