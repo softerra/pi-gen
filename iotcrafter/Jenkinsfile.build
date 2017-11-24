@@ -22,7 +22,8 @@ properties([disableConcurrentBuilds(),
 
 				booleanParam(defaultValue: false, description: 'for debug', name: 'kenelRebuild'),
 				string(defaultValue: '', description: 'for debug', name: 'kernelCommit'),
-				booleanParam(defaultValue: false, description: 'for debug', name: 'continue')
+				booleanParam(defaultValue: false, description: 'for debug', name: 'continue'),
+				booleanParam(defaultValue: false, description: 'for debug', name: 'enableUart')
             ]),
             pipelineTriggers([])
         ])
@@ -76,6 +77,7 @@ node {
 		conf_kern_rebuild = params.kernelRebuild ? 1 : 0
 		conf_is_release = params.isRelease ? 1 : 0
 		conf_continue = params.continue ? 1 : 0
+		conf_en_uart = params.enableUart ? 1 : 0
 
 		dir('pi-gen') {
 			imgDate = params.buildInfo[0..9]
@@ -89,7 +91,7 @@ WORK_DIR=/pi-gen/work
 
 IOTCRAFTER_UPGRADE=${conf_upgrade}
 IOTCRAFTER_RPI_UPDATE=${conf_rpi_update}
-IOTCRAFTER_ENABLE_UART=1
+IOTCRAFTER_ENABLE_UART=${conf_en_uart}
 IOTCRAFTER_KERNEL_HASH=${params.kernelCommit}
 IOTCRAFTER_KERNEL_DIR=${kernLocalRepo}
 IOTCRAFTER_KERNEL_REBUILD=${conf_kern_rebuild}
