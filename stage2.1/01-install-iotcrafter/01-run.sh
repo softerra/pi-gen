@@ -1,10 +1,11 @@
 #!/bin/bash -e
 
 install -m 644 files/iotcrafter.list ${ROOTFS_DIR}/etc/apt/sources.list.d/
-wget -qO - http://iotcrafter.com:8888/iotc/iotcrafter.gpg.key | apt-key add -
 
 on_chroot << EOF
 uname -a # check cpu
+
+wget -qO - http://iotcrafter.com:8888/iotc/iotcrafter.gpg.key | apt-key add -
 
 apt-get -y update
 
