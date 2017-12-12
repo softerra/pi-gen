@@ -42,7 +42,8 @@ node {
 		error('buildInfo arg is required')
 	}
 
-	def buildSuffix = params.isRelease ? '' : '/current'
+	//def buildSuffix = params.isRelease ? '' : '/current'
+	def buildSuffix = ''
 	deploy.base += buildSuffix
 
 	def scmVars = []
