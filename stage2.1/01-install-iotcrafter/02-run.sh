@@ -40,8 +40,11 @@ if [ ! -z "$IOTCRAFTER_ENABLE_UART" ]; then
 		echo "echo 'enable_uart='$IOTCRAFTER_ENABLE_UART >> ${ROOTFS_DIR}/boot/config.txt" | /bin/bash
 fi
 
+# Add configuration for possible eth0 and eth1 interfaces
+install -m 644 files/eth* ${ROOTFS_DIR}/etc/network/interfaces.d/
+
 # prepare wlan0 interface configuration template in /etc/network/interfaces
-#TODO: consider not doing this for 'upgrade' ?
+# TODO: consider moving wlan0 config to interfaces.d/ (iotc_init.sh involved)
 interfaces=${ROOTFS_DIR}/etc/network/interfaces
 echo "grep -Eq '^iface\s*wlan0\s*' $interfaces && \
 	sed -i '
