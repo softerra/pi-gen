@@ -11,7 +11,9 @@ if [ "$IOTCRAFTER_RPI_UPDATE" = "1" ]; then
 	on_chroot << EOF
 mod_dirs=\$(ls /lib/modules)
 mod_dirs_count=\$(ls /lib/modules|wc -w)
+
 rpi-update
+
 if [ \$? -eq 0 ]; then
 	if [ -d /lib/modules.bak ]; then
 		rm -rf /lib/modules.bak
