@@ -42,6 +42,7 @@ $DOCKER build \
 $DOCKER rmi $(docker images -f "dangling=true" -q) || true
 
 CONTAINER_NAME="${BUILD_SYS}_${DOCKER_CONTAINER_SUFFIX}_work"
+CONTINUE=${CONTINUE:-0}
 CONTAINER_EXISTS=$($DOCKER ps -a --filter name="$CONTAINER_NAME" -q)
 CONTAINER_RUNNING=$($DOCKER ps --filter name="$CONTAINER_NAME" -q)
 
@@ -68,7 +69,7 @@ if [ "$CONTAINER_EXISTS" != "" ] && [ "$CONTINUE" = "1" ]; then
 		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
 		$DOCKER_IMG:$DOCKER_IMG_TAG \
 		bash -o pipefail -c "${buildCommand}" &
-	wait
+	wait "$!"
 
 	# remove old container and rename this to usual name
 	echo "Removing old container"
@@ -92,7 +93,7 @@ else
 		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
 		$DOCKER_IMG:$DOCKER_IMG_TAG \
 		bash -o pipefail -c "${buildCommand}" &
-	wait
+	wait "$!"
 fi
 
 rmdir work
