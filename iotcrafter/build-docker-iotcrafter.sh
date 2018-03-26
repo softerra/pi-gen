@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+cd $(cd $(dirname $0); pwd)/..
+
 BUILD_SYS="pi-gen"
 DOCKER_IMG="${BUILD_SYS}-iotcrafter"
 DOCKER_IMG_TAG="stretch"
@@ -15,9 +17,27 @@ if ! $DOCKER ps >/dev/null; then
 	$DOCKER ps
 	exit 1
 fi
-set -e
 
-cd $(cd $(dirname $0); pwd)/..
+if [ "$1" = "docker" ]; then
+	echo "(Re-)building docker image only.."
+	docker image rm "$DOCKER_IMG:$DOCKER_IMG_TAG"
+else
+	echo "Building docker image as need.."
+fi
+
+$DOCKER build \
+	--build-arg DEB_DISTRO=$DOCKER_IMG_TAG \
+	-t "$DOCKER_IMG:$DOCKER_IMG_TAG" \
+	-f iotcrafter/Dockerfile.iotcrafter iotcrafter/
+RC=$?
+$DOCKER rmi $(docker images -f "dangling=true" -q)
+
+if [ "$1" = "docker" -o $RC -ne 0 ]; then
+	exit $RC
+fi
+
+set -e
+echo "Building Raspbian image.."
 
 if [ -f config ]; then
 	source config
@@ -33,13 +53,6 @@ if [ -n "${IOTCRAFTER_KERNEL_DIR}" ]; then
 	mkdir -p ${IOTCRAFTER_KERNEL_DIR}
 	kernelMount="-v ${IOTCRAFTER_KERNEL_DIR}:${IOTCRAFTER_KERNEL_DIR}"
 fi
-
-echo "Building docker image as need.."
-$DOCKER build \
-	--build-arg DEB_DISTRO=$DOCKER_IMG_TAG \
-	-t "$DOCKER_IMG:$DOCKER_IMG_TAG" \
-	-f iotcrafter/Dockerfile.iotcrafter iotcrafter/
-$DOCKER rmi $(docker images -f "dangling=true" -q) || true
 
 CONTAINER_NAME="${BUILD_SYS}_${DOCKER_CONTAINER_SUFFIX}_work"
 CONTINUE=${CONTINUE:-0}
