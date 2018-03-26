@@ -28,6 +28,7 @@ CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C)
 check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c"
 OVERLAYS="apds9960"
 
+kernelName=
 buildDir=
 modulesDir=
 modulesDirName=
@@ -192,10 +193,12 @@ prepareKernelDir()
 selectPI()
 {
 	if [ $1 -eq 1 ]; then
+		kernelName=kernel
 		buildDir=$KERNEL_DIR/$BUILD_DIR
 		modulesDir=$KERNEL_DIR/$MODULES_DIR
 		defConfig=$PI1_CONF
 	else
+		kernelName=kernel7
 		buildDir=$KERNEL_DIR/${BUILD_DIR}7
 		modulesDir=$KERNEL_DIR/${MODULES_DIR}7
 		defConfig=$PI2_CONF
@@ -303,14 +306,25 @@ installAll()
 {
 	selectPI $1
 
-	# For now just subst modules, dtbs and overlays
+#	# For now just subst modules, dtbs and overlays
 	echo "Installing modules (to $modulesDirName), dtbs and overlays for $1"
-	rm -f $IMG_DIR/boot/overlays/*
-    cp $buildDir/arch/arm/boot/dts/overlays/*.dtb* $IMG_DIR/boot/overlays/
-    cp $KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays/README $IMG_DIR/boot/overlays/
-	cp -f $buildDir/arch/arm/boot/dts/*.dtb $IMG_DIR/boot/
+#	rm -f $IMG_DIR/boot/overlays/*
+	# copy once
+	if [ $1 -eq 1 ]; then
+		# dtbs
+		cp -f $buildDir/arch/arm/boot/dts/*.dtb $IMG_DIR/boot/
+		cp -f $buildDir/arch/arm/boot/dts/overlays/*.dtb* $IMG_DIR/boot/overlays/
 
-    rm -rf $IMG_DIR/lib/modules/$modulesDirName
+		# README
+		cp $KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays/README $IMG_DIR/boot/overlays/
+	fi
+
+	# kernel
+	cp $IMG_DIR/boot/$kernelName.img $IMG_DIR/boot/$kernelName-backup.img
+	cp $buildDir/arch/arm/boot/zImage $IMG_DIR/boot/$kernelName.img
+
+	# modules
+	rm -rf $IMG_DIR/lib/modules/$modulesDirName
 	cp -R --no-dereference $modulesDir/lib/modules/$modulesDirName $IMG_DIR/lib/modules/
 	rm $IMG_DIR/lib/modules/$modulesDirName/build $IMG_DIR/lib/modules/$modulesDirName/source
 }
