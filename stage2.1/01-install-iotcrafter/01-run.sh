@@ -3,6 +3,8 @@
 install -m 644 files/iotcrafter.list ${ROOTFS_DIR}/etc/apt/sources.list.d/
 
 on_chroot << EOF
+set -e
+
 uname -a # check cpu
 
 wget -qO - http://iotcrafter.com:8888/iotc/iotcrafter.gpg.key | apt-key add -
