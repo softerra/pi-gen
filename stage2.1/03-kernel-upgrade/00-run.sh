@@ -301,6 +301,74 @@ makeAll()
 	return $rc
 }
 
+. $MY_DIR/linux-version
+
+IOTC_MODULES="DHT HCSR04"
+#IOTC_REPO_DHT="/home/alex/repos/kernel/DHT22-sensor-driver"
+#IOTC_REPO_HCSR04="/home/alex/repos/kernel/my-linux-hc-sro4"
+IOTC_REPO_DHT="https://github.com/softerra/DHT22-sensor-driver.git"
+IOTC_REPO_HCSR04="https://github.com/softerra/linux-hc-sro4.git"
+
+get_kernel_version()
+{
+	local vars=`cat $KERNEL_DIR/linux/Makefile | \
+					grep -E "^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION) =" | \
+						sed 's/ //g' | sed 's/^\(.*\)/local \\1/'`
+	eval "$vars"
+
+#	VERSION=4
+#	PATCHLEVEL=2
+#	SUBLEVEL=0
+#	EXTRAVERSION=-rc1
+
+	eval "$1=${VERSION}.${PATCHLEVEL}.${SUBLEVEL}$EXTRAVERSION"
+}
+
+prepareExtra()
+{
+	get_kernel_version kernel_version
+	echo "preparing extra modules for kernel: $kernel_version"
+
+	for m in $IOTC_MODULES; do
+		# clenup
+		rm -rf $KERNEL_DIR/iotc/$m
+		# setup
+		#mkdir -p $KERNEL_DIR/iotc/$m
+		eval "repoUrl=\$IOTC_REPO_${m}"
+		git clone $repoUrl $KERNEL_DIR/iotc/$m
+
+		(cd $KERNEL_DIR/iotc/$m
+			versions="$(git tag -l linux-v[0-9]* | sed 's/^linux-v//')"
+			lxver_get_matched_version $kernel_version "$versions" "checkout_version"
+			#echo "->checkout_version=$checkout_version"
+			if [ "$checkout_version" != "0.0" ]; then
+				checkout_version="linux-v${checkout_version}"
+				echo "checkout ${checkout_version}"
+				git checkout ${checkout_version}
+			else
+				echo "no special version to check out"
+			fi
+		)
+	done
+}
+
+makeExtra()
+{
+	echo "`date`: Start building extra modules for $1"
+	selectPI $1
+
+	for d in $IOTC_MODULES; do
+		cd $KERNEL_DIR/iotc/$d
+		make $MAKE_OPTS $piMakeOpts M=$PWD clean
+		make -j8 $MAKE_OPTS $piMakeOpts M=$PWD modules && \
+			make -j8 $MAKE_OPTS $piMakeOpts M=$PWD modules_install
+		cd ..
+	done
+}
+
+# install some items (e.g. dtbs) once
+INSTALL_ONCE=0
+
 # $1 = 1|2 (PI1 or PI2)
 installAll()
 {
@@ -309,24 +377,25 @@ installAll()
 #	# For now just subst modules, dtbs and overlays
 	echo "Installing modules (to $modulesDirName), dtbs and overlays for $1"
 #	rm -f $IMG_DIR/boot/overlays/*
-	# copy once
-	if [ $1 -eq 1 ]; then
+	# once
+	if [ $INSTALL_ONCE -eq 0 ]; then
+		INSTALL_ONCE=1
 		# dtbs
 		cp -f $buildDir/arch/arm/boot/dts/*.dtb $IMG_DIR/boot/
 		cp -f $buildDir/arch/arm/boot/dts/overlays/*.dtb* $IMG_DIR/boot/overlays/
 
 		# README
-		cp $KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays/README $IMG_DIR/boot/overlays/
+		cp -f $KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays/README $IMG_DIR/boot/overlays/
 	fi
 
 	# kernel
-	cp $IMG_DIR/boot/$kernelName.img $IMG_DIR/boot/$kernelName-backup.img
-	cp $buildDir/arch/arm/boot/zImage $IMG_DIR/boot/$kernelName.img
+	cp -f $IMG_DIR/boot/$kernelName.img $IMG_DIR/boot/$kernelName-backup.img
+	cp -f $buildDir/arch/arm/boot/zImage $IMG_DIR/boot/$kernelName.img
 
 	# modules
 	rm -rf $IMG_DIR/lib/modules/$modulesDirName
 	cp -R --no-dereference $modulesDir/lib/modules/$modulesDirName $IMG_DIR/lib/modules/
-	rm $IMG_DIR/lib/modules/$modulesDirName/build $IMG_DIR/lib/modules/$modulesDirName/source
+	rm -f $IMG_DIR/lib/modules/$modulesDirName/build $IMG_DIR/lib/modules/$modulesDirName/source
 }
 
 getKernelHash
@@ -339,6 +408,9 @@ addOverlays
 makeAll 1 || exit 1
 makeAll 2 || exit 1
 INFO_MSG="${INFO_MSG}\nGet headers: use INSTALL_HDR_PATH with headers_install"
+prepareExtra || exit 1
+makeExtra 1 || exit 1
+makeExtra 2 || exit 1
 installAll 1
 installAll 2
 

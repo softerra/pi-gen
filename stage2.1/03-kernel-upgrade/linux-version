@@ -1,0 +1,115 @@
+#!/bin/sh
+
+#=====================================================================================
+# Note:
+#  - all global names are prefixed with "lxver_"
+#=====================================================================================
+
+# $1 - version to split
+# $2 - prefix for result variables with suffixes: _v, _p, _s, _e
+lxver_split_version() {
+	local v=$1
+	local prefix=$2
+
+	set `echo $v | sed 's/^\([^\-]*\)-rc\([0-9][0-9]*\)/\1 \2/'`
+	v=$1
+	eval "${prefix}_e=\$(($2+0))"
+
+	set `echo $v | sed 's/^\([0-9]*\).\([0-9]*\)\(.\([0-9]*\)\)*/\1 \2 \4/'`
+	eval "${prefix}_v=\$(($1+0))"
+	eval "${prefix}_p=\$(($2+0))"
+	eval "${prefix}_s=\$(($3+0))"
+}
+
+# $1 - version 1
+# $2 - version 2
+# return 0: version 1 = version 2
+# return 1: version 1 > version 2
+# return 2: version 1 < version2 (use 2 instead of -1 which 'returned' as 255)
+# Note: X.Y > X.Y-rcR
+lxver_compare_versions() {
+	lxver_split_version "$1" "lxver_v1"
+	lxver_split_version "$2" "lxver_v2"
+
+	[ $lxver_v1_v -lt $lxver_v2_v ] && return 2
+	[ $lxver_v1_v -gt $lxver_v2_v ] && return 1
+
+	[ $lxver_v1_p -lt $lxver_v2_p ] && return 2
+	[ $lxver_v1_p -gt $lxver_v2_p ] && return 1
+
+	[ $lxver_v1_s -lt $lxver_v2_s ] && return 2
+	[ $lxver_v1_s -gt $lxver_v2_s ] && return 1
+
+	if [ $lxver_v1_e -eq 0 -o $lxver_v2_e -eq 0 ]; then	# at least one doesn't have -rcR
+		[ $lxver_v1_e -ne 0 ] && return 2				# v1 has -rcR => v2 doesn't, v1 < v2
+		[ $lxver_v2_e -ne 0 ] && return 1				# v2 has -rcR => v1 doesn't, v1 > v2
+		# both don't have -rcR => v1 == v2
+	else
+		# both have -rcR => compare
+		[ $lxver_v1_e -lt $lxver_v2_e ] && return 2
+		[ $lxver_v1_e -gt $lxver_v2_e ] && return 1
+	fi
+
+	return 0
+}
+
+lxver_compare_versions_test() {
+	local v1_set="4.9.20 4.9.19 4.9.4 4.9.0 4.9 4.9-rc11 4.9.0-rc7 4.9-rc1 4.8.11 4.8.7 4.8-rc5 0.0"
+	local v2_set="$v1_set"
+	local v1=
+	local v2=
+	local rc=
+	local sign=
+
+	echo "TEST:"
+	for v1 in $v1_set; do
+		for v2 in $v2_set; do
+			lxver_compare_versions $v1 $v2
+			rc=$?
+			sign="="
+			[ $rc -eq 2 ] && sign="<"
+			[ $rc -eq 1 ] && sign=">"
+			printf "%10s %s %10s  rc=%d\n" $v1 $sign $v2 $rc
+		done
+		echo "---"
+	done
+}
+##lxver_compare_versions_test
+
+# $1 - current version
+# $2 - list of available versions
+# $3 - name of result var to set
+lxver_get_matched_version() {
+	local max_avail_ver="0.0"
+	local v=$max_avail_ver
+	local rc
+
+	for v in $2; do
+#		echo -n "..ver=$v: "
+		lxver_compare_versions "$1" "$v"
+		rc=$?
+#		echo $rc
+		[ $rc -eq 0 ] && break
+		if [ $rc -eq 1 ]; then
+			lxver_compare_versions "$max_avail_ver" "$v"
+			if [ $? -eq 2 ]; then
+				max_avail_ver="$v"
+			fi
+		fi
+		v="$max_avail_ver"
+	done
+	eval "$3=\"$v\""
+}
+
+lxver_get_matched_version_test() {
+	local v1_set="4.9.20 4.9.19 4.9.4 4.9.0 4.9 4.9-rc11 4.9.0-rc7 4.9-rc1 4.8.11 4.8.7 4.8-rc5"
+	local v2_set="4.9.20 4.9.18 4.9.3 4.9 4.9-rc15 4.9-rc7 4.9.0-rc6 4.8.12 4.8.6 4.8.0 4.8-rc2 4.7.3"
+	local v2
+
+	echo "TEST: $v1_set"
+	for v2 in $v2_set; do
+		lxver_get_matched_version $v2 "$v1_set" "lxver_result"
+		printf "%10s match --> %10s\n" $v2 $lxver_result
+	done
+}
+##lxver_get_matched_version_test
