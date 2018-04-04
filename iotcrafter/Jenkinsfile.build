@@ -11,19 +11,23 @@ properties([disableConcurrentBuilds(),
 						daysToKeepStr: '',
 						numToKeepStr: '2')),
 			parameters([
-				string(defaultValue: '', description: '', name: 'bsRepo'),
-				string(defaultValue: '', description: '', name: 'buildGitCommit'),
-				string(defaultValue: '', description: 'build identification string', name: 'buildInfo'),
+				// required
+				string(defaultValue: '', description: 'build from the repo', name: 'bsRepo'),
+				string(defaultValue: '', description: 'build the revision', name: 'buildGitCommit'),
+				string(defaultValue: '', description: 'identity of the build', name: 'buildInfo'),
 
-				booleanParam(defaultValue: false, description: '', name: 'isRelease'),
+				// optional
+				booleanParam(defaultValue: false, description: 'duplicate release in old repo', name: 'isRelease'),
 
-				booleanParam(defaultValue: true, description: '', name: 'sysUpgrade'),
-				booleanParam(defaultValue: true, description: '', name: 'rpiUpdate'),
+				booleanParam(defaultValue: true, description: 'do apt-get upgrade', name: 'sysUpgrade'),
+				booleanParam(defaultValue: true, description: 'do rpi-update', name: 'rpiUpdate'),
 
-				booleanParam(defaultValue: false, description: 'for debug', name: 'kenelRebuild'),
-				string(defaultValue: '', description: 'for debug', name: 'kernelCommit'),
-				booleanParam(defaultValue: false, description: 'for debug', name: 'continue'),
-				booleanParam(defaultValue: false, description: 'for debug', name: 'enableUart')
+				booleanParam(defaultValue: false, description: 'complete rebuild of kernel', name: 'kenelRebuild'),
+				string(defaultValue: '', description: 'build exact kernel revision', name: 'kernelCommit'),
+				booleanParam(defaultValue: false, description: 'try continuefailed build in previous container', name: 'continue'),
+				booleanParam(defaultValue: false, description: 'build image with UART enabled', name: 'enableUart'),
+
+				booleanParam(defaultValue: true, description: 'defconfig is allowed to override the settings', name: 'allowOverride')
             ]),
             pipelineTriggers([])
         ])
@@ -73,6 +77,7 @@ node {
 
 		scmVars = checkout(scmInfo)
 
+		// prepare config: first, set the params, then, if ignoreDefconfig==false, append defconfig
 		conf_upgrade = params.sysUpgrade ? 1 : 0
 		conf_rpi_update = params.rpiUpdate ? 1 : 0
 		conf_kern_rebuild = params.kernelRebuild ? 1 : 0
@@ -92,6 +97,7 @@ WORK_DIR=/pi-gen/work
 
 IOTCRAFTER_UPGRADE=${conf_upgrade}
 IOTCRAFTER_RPI_UPDATE=${conf_rpi_update}
+IOTCRAFTER_RPI_FIRMWARE_REV=
 IOTCRAFTER_ENABLE_UART=${conf_en_uart}
 IOTCRAFTER_KERNEL_HASH=${params.kernelCommit}
 IOTCRAFTER_KERNEL_DIR=${kernLocalRepo}
@@ -100,6 +106,31 @@ IOTCRAFTER_IS_RELEASE=${conf_is_release}
 CONTINUE=${conf_continue}
 EOF
 			"""
+			if (params.allowOverride) {
+				sh """#!/bin/bash
+					if [ -f iotcrafter/defconfig ]; then
+						echo "==Config:=="
+						cat config
+
+						while read line; do
+							if echo "\${line}" | grep -qE '^#' ||  echo "\${line}" | grep -qvE '='; then
+								continue
+							fi
+							var=\${line%%=*}
+						    val=\${line##*=}
+							if grep -q -E "^\${var}=" config; then
+								sed -i "s/^\\(\${var}\\)=.*\$/\\1=\${val}/" config
+							else
+								echo "\${line}" >> config
+							fi
+						done < iotcrafter/defconfig
+
+						echo "==Config overrided:=="
+						cat config
+					fi
+				"""
+			}
+
 			sh """
 				touch stage3/SKIP stage4/SKIP stage5/SKIP
 				rm -f stage2/EXPORT_* stage3/EXPORT_* stage4/EXPORT_* stage5/EXPORT_*

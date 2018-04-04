@@ -12,7 +12,8 @@ if [ "$IOTCRAFTER_RPI_UPDATE" = "1" ]; then
 mod_dirs=\$(ls /lib/modules)
 mod_dirs_count=\$(ls /lib/modules|wc -w)
 
-yes | rpi-update
+echo "Updating RPI firmware to rev: '$IOTCRAFTER_RPI_FIRMWARE_REV'.."
+yes | rpi-update $IOTCRAFTER_RPI_FIRMWARE_REV
 
 if [ \$? -eq 0 ]; then
 	if [ -d /lib/modules.bak ]; then
