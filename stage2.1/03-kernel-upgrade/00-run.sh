@@ -304,8 +304,6 @@ makeAll()
 . $MY_DIR/linux-version
 
 IOTC_MODULES="DHT HCSR04"
-#IOTC_REPO_DHT="/home/alex/repos/kernel/DHT22-sensor-driver"
-#IOTC_REPO_HCSR04="/home/alex/repos/kernel/my-linux-hc-sro4"
 IOTC_REPO_DHT="https://github.com/softerra/DHT22-sensor-driver.git"
 IOTC_REPO_HCSR04="https://github.com/softerra/linux-hc-sro4.git"
 
@@ -324,6 +322,10 @@ get_kernel_version()
 	eval "$1=${VERSION}.${PATCHLEVEL}.${SUBLEVEL}$EXTRAVERSION"
 }
 
+# Checkout:
+# - if repsective var IOTC_REPO_XXX_REV is defined, use it
+# - if tags linux-vX.Y.Z defined, select the biggest version but not more than version of the current kernel
+# - otherwise use default revision after cloning
 prepareExtra()
 {
 	get_kernel_version kernel_version
@@ -335,20 +337,28 @@ prepareExtra()
 		# setup
 		#mkdir -p $KERNEL_DIR/iotc/$m
 		eval "repoUrl=\$IOTC_REPO_${m}"
+		eval "repoRev=\$IOTC_REPO_${m}_REV"
+
 		git clone $repoUrl $KERNEL_DIR/iotc/$m
 
-		(cd $KERNEL_DIR/iotc/$m
-			versions="$(git tag -l linux-v[0-9]* | sed 's/^linux-v//')"
-			lxver_get_matched_version $kernel_version "$versions" "checkout_version"
-			#echo "->checkout_version=$checkout_version"
-			if [ "$checkout_version" != "0.0" ]; then
-				checkout_version="linux-v${checkout_version}"
-				echo "checkout ${checkout_version}"
-				git checkout ${checkout_version}
-			else
-				echo "no special version to check out"
-			fi
-		)
+		if [ "$repoRev" != "" ]; then
+			(cd $KERNEL_DIR/iotc/$m
+				git checkout $repoRev
+			)
+		else
+			(cd $KERNEL_DIR/iotc/$m
+				versions="$(git tag -l linux-v[0-9]* | sed 's/^linux-v//')"
+				lxver_get_matched_version $kernel_version "$versions" "checkout_version"
+				#echo "->checkout_version=$checkout_version"
+				if [ "$checkout_version" != "0.0" ]; then
+					checkout_version="linux-v${checkout_version}"
+					echo "checkout ${checkout_version}"
+					git checkout ${checkout_version}
+				else
+					echo "no special version to check out"
+				fi
+			)
+		fi
 	done
 }
 
