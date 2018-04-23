@@ -1,6 +1,6 @@
 #!/bin/bash
 
-REQ_NODEV="v4.8.4"
+REQ_NODEV="v6.14.1"
 
 # need to remove and 'install' over
 apt-get -y --force-yes remove nodejs
