@@ -379,6 +379,11 @@ makeExtra()
 # install some items (e.g. dtbs) once
 INSTALL_ONCE=0
 
+cleanupModules()
+{
+	rm -rf $IMG_DIR/lib/modules/*
+}
+
 # $1 = 1|2 (PI1 or PI2)
 installAll()
 {
@@ -403,7 +408,7 @@ installAll()
 	cp -f $buildDir/arch/arm/boot/zImage $IMG_DIR/boot/$kernelName.img
 
 	# modules
-	rm -rf $IMG_DIR/lib/modules/$modulesDirName
+	#rm -rf $IMG_DIR/lib/modules/$modulesDirName
 	cp -R --no-dereference $modulesDir/lib/modules/$modulesDirName $IMG_DIR/lib/modules/
 	rm -f $IMG_DIR/lib/modules/$modulesDirName/build $IMG_DIR/lib/modules/$modulesDirName/source
 }
@@ -421,6 +426,7 @@ INFO_MSG="${INFO_MSG}\nGet headers: use INSTALL_HDR_PATH with headers_install"
 prepareExtra || exit 1
 makeExtra 1 || exit 1
 makeExtra 2 || exit 1
+cleanupModules || exit 1
 installAll 1
 installAll 2
 
