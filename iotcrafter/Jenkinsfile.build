@@ -9,15 +9,17 @@ properties([disableConcurrentBuilds(),
 				logRotator(artifactDaysToKeepStr: '',
 						artifactNumToKeepStr: '',
 						daysToKeepStr: '',
-						numToKeepStr: '2')),
+						numToKeepStr: '10')),
 			parameters([
 				// required
 				string(defaultValue: '', description: 'build from the repo', name: 'bsRepo'),
 				string(defaultValue: '', description: 'build the revision', name: 'buildGitCommit'),
-				string(defaultValue: '', description: 'identity of the build', name: 'buildInfo'),
+				string(defaultValue: '', description: 'build identification string', name: 'buildInfo'),
 
 				// optional
-				booleanParam(defaultValue: false, description: 'duplicate release in old repo', name: 'isRelease'),
+				booleanParam(defaultValue: false, description: 'make a copy for old installer', name: 'isOldRelease'),
+
+				string(defaultValue: 'unknown', description: 'deployment branch-id', name: 'branchId'),
 
 				booleanParam(defaultValue: true, description: 'do apt-get upgrade', name: 'sysUpgrade'),
 				booleanParam(defaultValue: true, description: 'do rpi-update', name: 'rpiUpdate'),
@@ -45,10 +47,6 @@ node {
 	if (params.buildInfo == '') {
 		error('buildInfo arg is required')
 	}
-
-	//def buildSuffix = params.isRelease ? '' : '/current'
-	def buildSuffix = ''
-	deploy.base += buildSuffix
 
 	def scmVars = []
 
@@ -81,7 +79,7 @@ node {
 		conf_upgrade = params.sysUpgrade ? 1 : 0
 		conf_rpi_update = params.rpiUpdate ? 1 : 0
 		conf_kern_rebuild = params.kernelRebuild ? 1 : 0
-		conf_is_release = params.isRelease ? 1 : 0
+		conf_is_release = params.isOldRelease ? 1 : 0
 		conf_continue = params.continue ? 1 : 0
 		conf_en_uart = params.enableUart ? 1 : 0
 
@@ -149,7 +147,8 @@ EOF
 		dir('pi-gen/deploy/') {
 			sh """#!/bin/bash
 				CUR_DATE=\$(date +%Y-%m-%d)
-				mkdir -p ${deploy['base']}/\${CUR_DATE}
+				TAG_DIR="${deploy['base']}/${params.branchId}/\${CUR_DATE}"
+				mkdir -p \${TAG_DIR}
 
 				# TODO: use normal names of images in the installer
 				ZIP_FNAME=\$(ls image_*-iotc*.zip)
@@ -159,13 +158,14 @@ EOF
 
 				sha256sum \$RESULT_ZIP_FNAME > \${RESULT_ZIP_FNAME}.sha256sum
 
-				cp -f \$RESULT_ZIP_FNAME ${deploy['base']}/\${CUR_DATE}/
-				cp -f \${RESULT_ZIP_FNAME}.sha256sum ${deploy['base']}/\${CUR_DATE}/
+				cp -f \$RESULT_ZIP_FNAME \$TAG_DIR
+				cp -f \${RESULT_ZIP_FNAME}.sha256sum \$TAG_DIR
 
 				# save pi-gen config for reference
-				cp -f ../config ${deploy['base']}/\${CUR_DATE}/\${RESULT_ZIP_FNAME}.config
+				cp -f ../config \${TAG_DIR}/\${RESULT_ZIP_FNAME}.config
 
-				if [ "${params.isRelease}" = "true" ]; then
+				# deploy img for old installer
+				if [ "${params.isOldRelease}" = "true" ]; then
 					mkdir -p ${deploy['old_base']}/\${CUR_DATE}
 
 					# Install (the latest!) rpi.img.zip for old installer: unzip, rename, zip

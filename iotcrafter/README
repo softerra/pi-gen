@@ -14,13 +14,14 @@ Iotcrafter Docker Build
 *** build.sh
 	- modified to include iotcrafter's variables exports
 *** export-image/prerun.sh modified
-+# align to sector size
-+BOOT_SIZE=$((BOOT_SIZE + 512 - $BOOT_SIZE % 512))
-+TOTAL_SIZE=$((TOTAL_SIZE + 512 - $TOTAL_SIZE % 512))
-
-This is done in order to make the resulting image file aligned to 512 bytes (sector size)
-which itself allows to find iotcrafter's data (with board key, wifi credentials etc)
-attached to the image by the installer right after the last sector of rootfs partition
+# Obsolete
+#+# align to sector size
+#+BOOT_SIZE=$((BOOT_SIZE + 512 - $BOOT_SIZE % 512))
+#+TOTAL_SIZE=$((TOTAL_SIZE + 512 - $TOTAL_SIZE % 512))
+#
+#This is done in order to make the resulting image file aligned to 512 bytes (sector size)
+#which itself allows to find iotcrafter's data (with board key, wifi credentials etc)
+#attached to the image by the installer right after the last sector of rootfs partition
 
 *** postbuild.sh
 	- saves RC code so build-docker-iotcrafter.sh can analyze it
@@ -60,6 +61,7 @@ iface wlan0 inet dhcp
 03-kernel-upgrade
 	- build own kernel with supported modules and overlays using the revision of the kernel
 		installed into rootfs at the moment (i.e. by stage0-stage2 or rpi-update)
+	- build additional extra drivers
 
 ==========================
 Automatic build by Jenkins
@@ -85,26 +87,42 @@ YYYY-MM-DD-raspbian-g<abbrev>-iotcrafter.img						- general name
 * debdist - is jessie,strecth,etc
 
 Jenkins build is organized by two jobs:
-	Jenkinsfile.rev -
-		master josb which determines revision/revisions to be built and
-		runs the slave job for every one revision picked out
-		- list tags 'YYYY-MM-DD-*' since the last release =>  list of 'release' revisions to build
-		- determine whether HEAD is 'release'(tagged appropriately), if not - 'current' revision to build
-		- determine name of HEAD revision as
-			- <YYYY-MM-DD-*tag>								by 'git describe --tags' (assume tags are YYYY-MM-DD-*)
-			- <YYYY-MM-DD-*tag>-N-g<commit>					by 'git describe --tags'
-			- YYYY-MM-DD-rc.<comment>.raspbian-g<commit>	by git log if comment looks like RC: <comment> ...
-			- YYYY-MM-DD-raspbian-g<commit>					by git log if comment is other
-	Jenkinsfile.build -
+	Jenkinsfile.rev
+	===============
+		master job which determines
+			- the latest 'release' revision (tagged specifically)
+			- current revision (if repo was changed and the HEAD is not 'release')
+		run the slave job:
+			- for every defined config - for 'release' revision
+			- for every defined config - for 'current' revision
+		Build identification:
+		--------------------
+		- determine 'release' revision to build:
+			- list tags 'YYYY-MM-DD-*' since the last release (or pre-defined last release),
+			pick out the latest one =>
+				- build 'release'
+				- build-name is the tag
+		- determine whether HEAD is the 'release', if not =>
+				- build 'current'
+				- build-name is
+					- <YYYY-MM-DD-*tag>								by 'git describe --tags' (assume tags are YYYY-MM-DD-*)
+					- <YYYY-MM-DD-*tag>-N-g<commit>					by 'git describe --tags'
+					- YYYY-MM-DD-rc.<comment>.raspbian-g<commit>	by git log if comment looks like RC: <comment> ...
+					- YYYY-MM-DD-raspbian-g<commit>					by git log if comment is other
+	Jenkinsfile.build
+	=================
 		slave/worker job which actually performs the build of a revision
 			- gets params from master job (repo, revision to build etc)
 			- prepares config file for pi-gen's build.sh
 			- prepares SKIP_ and EXPORT_ filesas decribed above
 			- runs iotcrafter/build-docker-iotcrafter.sh
 			- copies result images to pre-defined dirs:
-				- 'release' => deploy[base]/CURDATE/YYYY-MM-DD-XX...XX-iotcrafter.zip
-							=> deploy[base]/CURDATE/rpi.img.zip (for old installer)
-				- 'current' => deploy[base]/current/CURDATE/YYYY-MM-DD-XX...XX-iotcrafter.zip
+				- 'release' => deploy[base]/<branch-ID>/CURDATE/YYYY-MM-DD-XX...XX-iotcrafter.zip
+							=> deploy[old_base]/CURDATE/bbb.img.zip (for old installer)
+			Image file name:
+			----------------
+			<build-name>-iotcrafter.img
+			example: 2017-11-24-20170907.raspbian.stretch-19-g87dd547-iotcrafter.zip
 
 Jenkins setup:
 * Create a pipeline for Jenkinsfile.rev
@@ -112,5 +130,3 @@ Jenkins setup:
 	equal to the name defined in Jenkinsfile.rev by workerJob variable
 
 NOTE: the jobs require a number of access approvals
-
-TODO: ?? make a pipeline for quick generation of all required approval requests

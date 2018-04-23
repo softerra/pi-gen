@@ -3,6 +3,8 @@
 def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
 def workerJob = 'oprog-img-rpi-build'
 
+def branchId = 'stable'
+
 properties([disableConcurrentBuilds(),
 			buildDiscarder(
 				logRotator(artifactDaysToKeepStr: '',
@@ -17,6 +19,14 @@ properties([disableConcurrentBuilds(),
 			]),
 			pipelineTriggers([pollSCM('H 03 * * *')])
 		])
+
+def saveLastReleaseRevision(rev) {
+	// save last release revision
+	println("Saving last release revision ${rev} to ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release")
+	sh """
+		echo -n "${rev}" > ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release
+	"""
+}
 
 node {
 	stage('Cleanup') {
@@ -52,17 +62,20 @@ node {
 					]
 		scmVars = checkout(scmDesc)
 
+		// override last revision in the persistent storage as requested
+		if (params.initialReleaseRevision != '') {
+			println("Override revision of last successfully built release: ${params.initialReleaseRevision}")
+			saveLastReleaseRevision(params.initialReleaseRevision)
+		}
+
 		// read last release revision from persistent storage
 		sh """
 			cp -f ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release ${env.WORKSPACE}/ || \
 				echo -n > ${env.WORKSPACE}/${env.JOB_BASE_NAME}-last-release
 		"""
 		def lastReleaseRev = readFile("${env.JOB_BASE_NAME}-last-release").trim()
+
 		def startReleaseRev = lastReleaseRev ?: initialGitRevision
-		if (params.initialReleaseRevision != '') {
-			println("Override start revision to look for releases from: ${params.initialReleaseRevision} instead of ${startReleaseRev}")
-			startReleaseRev = params.initialReleaseRevision
-		}
 		newCommits = scmVars.GIT_COMMIT != scmVars.GIT_PREVIOUS_COMMIT
 
 		//debug
@@ -87,8 +100,9 @@ node {
 		dir('pi-gen') {
 			sh """
 				# release tag starts with 'YYYY-MM-DD-'
+				# NOTE: restrict tag list by the latest one (build the latest only)
 				git tag -l --contains ${startReleaseRev} --merged | \
-					sed -n '/[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}-/ p' > \
+					sed -n '/[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}-/ p' | tail -n1 > \
 						${env.WORKSPACE}/tag-list
 
 				echo -n > ${env.WORKSPACE}/release-list
@@ -126,56 +140,60 @@ node {
 	println("headIsRelease: ${headIsRelease}")
 	println("workerJob: ${workerJob}")
 
-	def built = false
-	def i = 0
-	for (release in releaseList) {
-		if (release == '') {
-			break
-		}
+	built = false
+	release = ''
+	if (releaseList.size() > 0) {
+		release = releaseList[0]
+	}
 
-		i++
-		stage("Release-${i}") {
-			releaseCommit = release[0..6]
-			releaseInfo = release[8..-1]
-			println("Building: ${release}")
+	if (release != '') {
+		releaseCommit = release[0..6]
+		releaseInfo = release[8..-1]
+
+		stage("Release") {
+			println("Building release: ${release}")
+
 			build([job: workerJob,
 				parameters: [
 					[$class: 'StringParameterValue', name: 'bsRepo', value: bsRepo ],
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: releaseCommit ],
 					[$class: 'StringParameterValue', name: 'buildInfo', value: releaseInfo ],
 
-					[$class: 'BooleanParameterValue', name: 'isRelease', value: true ]
+					[$class: 'BooleanParameterValue', name: 'isOldRelease', value: true ],
+
+					[$class: 'StringParameterValue', name: 'branchId', value: branchId ]
 				]
 			])
-
-			// save last release revision
-			sh """
-				echo -n "${releaseCommit}" > ${env.JENKINS_HOME}/userContent/${env.JOB_BASE_NAME}-last-release
-			"""
-
-			built = true
 		}
+
+		built = true
+
+		// save last release revision
+		saveLastReleaseRevision(releaseCommit)
 	}
 
 	if (newCommits && !headIsRelease) {
+
 		stage('Current') {
-			println("Building: ${headInfo}")
+			println("Building current: ${headInfo}")
+
 			build([job: workerJob,
 				parameters: [
 					[$class: 'StringParameterValue', name: 'bsRepo', value: bsRepo ],
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: scmVars.GIT_COMMIT ],
 					[$class: 'StringParameterValue', name: 'buildInfo', value: headInfo ],
 
-					[$class: 'BooleanParameterValue', name: 'isRelease', value: false ]
+					[$class: 'BooleanParameterValue', name: 'isOldRelease', value: false ],
+
+					[$class: 'StringParameterValue', name: 'branchId', value: branchId ]
 				]
 			])
-
-			built = true
 		}
+
+		built = true
 	}
 
 	if (!built) {
 		println("Nothing new to build")
 	}
 }
-
