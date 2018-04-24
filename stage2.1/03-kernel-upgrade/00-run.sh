@@ -303,8 +303,7 @@ makeAll()
 
 . $MY_DIR/linux-version
 
-IOTC_MODULES="DHT HCSR04"
-IOTC_REPO_DHT="https://github.com/softerra/DHT22-sensor-driver.git"
+IOTC_MODULES="HCSR04"
 IOTC_REPO_HCSR04="https://github.com/softerra/linux-hc-sro4.git"
 
 get_kernel_version()
