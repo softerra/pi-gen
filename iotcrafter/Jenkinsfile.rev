@@ -87,7 +87,7 @@ node {
 
 		if (params.rebuildCurrent) {
 			newCommits = true	// if HEAD is not release then build as 'Current'
-			if (startReleaseRev == scmVars.GIT_COMMIT) {
+			if (startReleaseRev == scmVars.GIT_COMMIT[0..6]) {
 				// use as start revision the revision before it, so this release will be selected
 				// TODO: may it select the start revision if it is also 'release'??
 				startReleaseRev += '^'
