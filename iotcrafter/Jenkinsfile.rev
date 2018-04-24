@@ -1,9 +1,9 @@
 #!/usr/bin/env groovy
 
-def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
+def initialGitRevision = '41bc49a' // tag: start of the 'dev' branch
 def workerJob = 'oprog-img-rpi-build'
 
-def branchId = 'stable'
+def branchId = 'dev'
 
 properties([disableConcurrentBuilds(),
 			buildDiscarder(
