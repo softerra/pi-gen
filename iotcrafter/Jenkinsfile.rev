@@ -10,14 +10,14 @@ properties([disableConcurrentBuilds(),
 				logRotator(artifactDaysToKeepStr: '',
 							artifactNumToKeepStr: '',
 							daysToKeepStr: '',
-							numToKeepStr: '3')),
+							numToKeepStr: '5')),
 			parameters([
 				booleanParam(defaultValue: false, description: 'force rebuild HEAD revision', name: 'rebuildCurrent'),
 				string(defaultValue: '',
 						description: 'if specified, overrides the commit which used as a start for looking for releases',
 						name: 'initialReleaseRevision')
 			]),
-			pipelineTriggers([pollSCM('H 03 * * *')])
+			pipelineTriggers([pollSCM('H 05 * * *')])
 		])
 
 def saveLastReleaseRevision(rev) {
