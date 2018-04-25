@@ -1,23 +1,23 @@
 #!/usr/bin/env groovy
 
-def initialGitRevision = 'dd7de25' // tag: 2017-07-05-raspbian-jessie
+def initialGitRevision = '41bc49a' // tag: start of the 'dev' branch
 def workerJob = 'oprog-img-rpi-build'
 
-def branchId = 'stable'
+def branchId = 'dev'
 
 properties([disableConcurrentBuilds(),
 			buildDiscarder(
 				logRotator(artifactDaysToKeepStr: '',
 							artifactNumToKeepStr: '',
 							daysToKeepStr: '',
-							numToKeepStr: '3')),
+							numToKeepStr: '5')),
 			parameters([
 				booleanParam(defaultValue: false, description: 'force rebuild HEAD revision', name: 'rebuildCurrent'),
 				string(defaultValue: '',
 						description: 'if specified, overrides the commit which used as a start for looking for releases',
 						name: 'initialReleaseRevision')
 			]),
-			pipelineTriggers([pollSCM('H 03 * * *')])
+			pipelineTriggers([pollSCM('H 05 * * *')])
 		])
 
 def saveLastReleaseRevision(rev) {
