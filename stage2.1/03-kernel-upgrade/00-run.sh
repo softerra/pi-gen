@@ -24,8 +24,8 @@ BUILD_DIR=build
 MODULES_DIR=modules
 PI1_CONF=bcmrpi_defconfig
 PI2_CONF=bcm2709_defconfig
-CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C)
-check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c"
+CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C SI7020)
+check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c iio/humidity/si7020"
 OVERLAYS="apds9960"
 
 kernelName=
