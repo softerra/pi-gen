@@ -240,6 +240,15 @@ enableModules()
 	fi
 }
 
+patchSources()
+{
+	local patchesDir=$MY_DIR/patches
+
+	for p in $(ls $patchesDir); do
+		patch -d $KERNEL_DIR/$LINUX_DIR -p1 < $patchesDir/$p
+	done
+}
+
 addOverlays()
 {
 	local overlayDir=$MY_DIR/overlays
@@ -418,6 +427,7 @@ makeDefConf 1 || exit 1
 makeDefConf 2 || exit 1
 enableModules 1 || exit 1
 enableModules 2 || exit 1
+patchSources || exit 1
 addOverlays
 makeAll 1 || exit 1
 makeAll 2 || exit 1

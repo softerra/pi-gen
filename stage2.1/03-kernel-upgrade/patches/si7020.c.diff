@@ -1,0 +1,50 @@
+--- a/drivers/iio/humidity/si7020.c
++++ b/drivers/iio/humidity/si7020.c
+@@ -34,6 +34,8 @@
+ #include <linux/iio/iio.h>
+ #include <linux/iio/sysfs.h>
+ 
++#include <linux/delay.h>
++
+ /* Measure Relative Humidity, Hold Master Mode */
+ #define SI7020CMD_RH_HOLD	0xE5
+ /* Measure Temperature, Hold Master Mode */
+@@ -50,12 +52,23 @@ static int si7020_read_raw(struct iio_dev *indio_dev,
+ 
+ 	switch (mask) {
+ 	case IIO_CHAN_INFO_RAW:
+-		ret = i2c_smbus_read_word_swapped(*client,
+-						  chan->type == IIO_TEMP ?
+-						  SI7020CMD_TEMP_HOLD :
+-						  SI7020CMD_RH_HOLD);
+-		if (ret < 0)
+-			return ret;
++		{
++			 __be32 buf = 0;
++
++			ret = i2c_smbus_write_byte(*client, chan->type == IIO_TEMP ?
++							SI7020CMD_TEMP_HOLD :
++							SI7020CMD_RH_HOLD);
++			if (ret)
++				return ret;
++			usleep_range(50000, 51000);
++
++			ret = i2c_master_recv(*client, (u8 *)&buf, 3);
++			if (ret < 0)
++				return ret;
++
++			ret = be32_to_cpu(buf) >> 16; // remove odd lsb and crc byte
++		}
++
+ 		*val = ret >> 2;
+ 		/*
+ 		 * Humidity values can slightly exceed the 0-100%RH
+@@ -120,7 +133,7 @@ static int si7020_probe(struct i2c_client *client,
+ 
+ 	if (!i2c_check_functionality(client->adapter,
+ 				     I2C_FUNC_SMBUS_WRITE_BYTE |
+-				     I2C_FUNC_SMBUS_READ_WORD_DATA))
++				     I2C_FUNC_SMBUS_READ_I2C_BLOCK))
+ 		return -EOPNOTSUPP;
+ 
+ 	/* Reset device, loads default settings. */
