@@ -24,8 +24,8 @@ BUILD_DIR=build
 MODULES_DIR=modules
 PI1_CONF=bcmrpi_defconfig
 PI2_CONF=bcm2709_defconfig
-CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C)
-check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c"
+CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C SI7020)
+check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c iio/humidity/si7020"
 OVERLAYS="apds9960"
 
 kernelName=
@@ -240,6 +240,15 @@ enableModules()
 	fi
 }
 
+patchSources()
+{
+	local patchesDir=$MY_DIR/patches
+
+	for p in $(ls $patchesDir); do
+		patch -d $KERNEL_DIR/$LINUX_DIR -p1 < $patchesDir/$p
+	done
+}
+
 addOverlays()
 {
 	local overlayDir=$MY_DIR/overlays
@@ -418,6 +427,7 @@ makeDefConf 1 || exit 1
 makeDefConf 2 || exit 1
 enableModules 1 || exit 1
 enableModules 2 || exit 1
+patchSources || exit 1
 addOverlays
 makeAll 1 || exit 1
 makeAll 2 || exit 1
