@@ -130,6 +130,7 @@ prepareKernelDir()
 			#					echo $?)
 			#[ $no_rebuild -eq 1 ] && echo "No need to update kernel sources" && return 0
 			echo "No need to update kernel sources"
+			(cd $KERNEL_DIR/$LINUX_DIR && git reset --hard)
 			return 0
 		fi
 	fi
