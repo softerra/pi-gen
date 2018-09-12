@@ -1,4 +1,4 @@
-ARG DEB_DISTRO=jessie
+ARG DEB_DISTRO=stretch
 FROM local/cross-build-armv7l:$DEB_DISTRO
 
 ARG DEB_DISTRO
@@ -9,7 +9,7 @@ RUN apt-get -y update && \
 	apt-get -y install \
 		git vim parted \
 		quilt realpath qemu-user-static debootstrap zerofree pxz zip dosfstools \
-		bsdtar libcap2-bin rsync grep udev xz-utils curl xxd
+		bsdtar libcap2-bin rsync grep udev xz-utils curl xxd file
 
 RUN if [ "$DEB_DISTRO" = "jessie" ]; then \
 		sed -i '1 i\\
