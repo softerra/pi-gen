@@ -17,7 +17,7 @@ properties([disableConcurrentBuilds(),
 						description: 'if specified, overrides the commit which used as a start for looking for releases',
 						name: 'initialReleaseRevision')
 			]),
-			pipelineTriggers([pollSCM('H 03 * * *')])
+			pipelineTriggers([pollSCM('H 01 * * *')])
 		])
 
 def saveLastReleaseRevision(rev) {
