@@ -21,11 +21,13 @@ fi
 if [ "$1" = "docker" ]; then
 	echo "(Re-)building docker image only.."
 	docker image rm "$DOCKER_IMG:$DOCKER_IMG_TAG"
+	docker_build_args="$2"
 else
 	echo "Building docker image as need.."
 fi
 
 $DOCKER build \
+	$docker_build_args \
 	--build-arg DEB_DISTRO=$DOCKER_IMG_TAG \
 	-t "$DOCKER_IMG:$DOCKER_IMG_TAG" \
 	-f iotcrafter/Dockerfile.iotcrafter iotcrafter/
