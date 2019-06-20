@@ -14,7 +14,7 @@ set -e
 
 uname -a # check cpu
 
-wget -qO - http://iotcrafter.com:8888/iotc/iotcrafter.gpg.key | apt-key add -
+wget -qO - http://download.iotcrafter.com/iotc/iotcrafter.gpg.key | apt-key add -
 
 apt-get -y update
 

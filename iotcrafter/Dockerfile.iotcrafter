@@ -22,6 +22,7 @@ deb http://deb.debian.org/debian jessie-backports main\
 
 RUN apt-get -y install \
 		fakeroot build-essential ncurses-dev libssl-dev bc kmod \
+		xz-utils flex libelf-dev bison \
 	&& rm -rf /var/lib/apt/lists/*
 
 VOLUME [ "/pi-gen/work" ]
