@@ -7,9 +7,19 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get -y update && \
 	apt-get -y install \
-		git vim parted \
-		quilt realpath qemu-user-static debootstrap zerofree pxz zip dosfstools \
-		bsdtar libcap2-bin rsync grep udev xz-utils curl xxd file
+			git vim parted \
+			quilt coreutils debootstrap zerofree zip dosfstools \
+			bsdtar libcap2-bin rsync grep udev xz-utils curl xxd file kmod
+
+# https://github.com/RPi-Distro/pi-gen/issues/271
+# use qemu-user-static:i386 for buster (assume host is 64 bits)
+RUN if [ "$DEB_DISTRO" = "buster" ]; then \
+		dpkg --add-architecture i386 \
+		&& apt-get -y update \
+		&& apt-get install -y qemu-user-static:i386; \
+	else \
+		apt-get install -y qemu-user-static; \
+	fi
 
 RUN if [ "$DEB_DISTRO" = "jessie" ]; then \
 		sed -i '1 i\\
@@ -22,7 +32,13 @@ deb http://deb.debian.org/debian jessie-backports main\
 
 RUN apt-get -y install \
 		fakeroot build-essential ncurses-dev libssl-dev bc kmod \
-		xz-utils flex libelf-dev bison \
-	&& rm -rf /var/lib/apt/lists/*
+		xz-utils flex libelf-dev bison
+
+RUN if [ "$DEB_DISTRO" = "buster" ]; then \
+			dpkg --add-architecture arm64 \
+			&& apt-get -y update \
+			&& apt-get -y install crossbuild-essential-arm64 \
+		&& rm -rf /var/lib/apt/lists/*; \
+	fi
 
 VOLUME [ "/pi-gen/work" ]

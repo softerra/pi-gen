@@ -58,7 +58,9 @@ getKernelHash()
 		kern_hash=$(wget https://raw.github.com/Hexxeh/rpi-firmware/$fw_hash/git_hash -O -)
 		echo -e "Detected (rpi-update):\nFW hash=$fw_hash\nkern_hash=$kern_hash"
 	else
-		fw_hash=$(zgrep "* firmware as of" $IMG_DIR/usr/share/doc/raspberrypi-bootloader/changelog.Debian.gz | head -1 | awk '{ print $5 }')
+		fw_hash=$(zgrep "* firmware as of" $IMG_DIR/usr/share/doc/raspberrypi-bootloader/changelog.Debian.gz \
+					| head -1 \
+					| sed  -n 's|.* \([^ ]*\)$|\1|p')
 		kern_hash=$(wget https://raw.github.com/raspberrypi/firmware/$fw_hash/extra/git_hash -O -)
 		echo -e "Detected:\nFW hash=$fw_hash\nkern_hash=$kern_hash"
 	fi

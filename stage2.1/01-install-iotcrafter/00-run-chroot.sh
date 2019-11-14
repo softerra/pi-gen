@@ -20,9 +20,12 @@ if [ -f node-${REQ_NODEV}-linux-armv6l.tar.xz ]; then
 	export QEMU_CPU=arm1176
 	uname -a # check cpu
 	npm config set unsafe-perm true
+	echo "npm config set unsafe-perm done"
 	#npm install bower -g
 	npm install yarn -g
-	npm i npm@latest -g
+	echo "npm install yarn done"
+	npm install npm@latest -g
+	echo "npm install latest done"
 else
 	echo "Error: failed to get required nodejs node-${REQ_NODEV}-linux-armv6l.tar.xz"
 	exit 1

@@ -1,1 +1,1 @@
-deb [arch=all,armhf] http://download.iotcrafter.com/iotc/rpi stretch main
+deb [arch=all,armhf] http://download.iotcrafter.com/iotc/rpi buster main
