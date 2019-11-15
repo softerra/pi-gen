@@ -162,7 +162,7 @@ node {
 					[$class: 'StringParameterValue', name: 'buildGitCommit', value: releaseCommit ],
 					[$class: 'StringParameterValue', name: 'buildInfo', value: releaseInfo ],
 
-					[$class: 'BooleanParameterValue', name: 'isOldRelease', value: true ],
+					[$class: 'BooleanParameterValue', name: 'isOldRelease', value: false ],
 
 					[$class: 'StringParameterValue', name: 'branchId', value: branchId ]
 				]
