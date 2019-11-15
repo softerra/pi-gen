@@ -10,43 +10,81 @@ IMG_DIR=${ROOTFS_DIR}
 # ${IOTCRAFTER_KERNEL_DIR}
 KERNEL_DIR=${BASE_DIR}/kernel
 
-# $CROSS_PATH
-CROSS_PREFIX=${CROSS_PREFIX:-arm-linux-gnueabihf-}
-if [ "${CROSS_PATH}" != "" ]; then
-	CROSS_PREFIX="${CROSS_PATH}/${CROSS_PREFIX}"
-fi
-
 KERNEL_GIT=https://github.com/raspberrypi/linux.git
 KERNEL_HASH=${IOTCRAFTER_KERNEL_HASH}	# force to use the commit if specified, otherwise detect
 
 LINUX_DIR=linux
 BUILD_DIR=build
 MODULES_DIR=modules
-PI1_CONF=bcmrpi_defconfig
-PI2_CONF=bcm2709_defconfig
+
 CONFIG_M=(APDS9960 BH1750 BMP280 BMP085_I2C SI7020)
 check_modules="iio/light/apds9960 iio/light/bh1750 iio/pressure/bmp280 iio/pressure/bmp280-i2c iio/humidity/si7020"
 OVERLAYS="apds9960"
 
+# kernels to build
+KERNEL_LIST="kernel kernel7 kernel7l kernel8"
+
+KERNEL_ARCH_kernel="arm"
+KERNEL_ARCH_kernel7="arm"
+KERNEL_ARCH_kernel7l="arm"
+KERNEL_ARCH_kernel8="arm64"
+
+KERNEL_CONF_kernel="bcmrpi_defconfig"
+KERNEL_CONF_kernel7="bcm2709_defconfig"
+KERNEL_CONF_kernel7l="bcm2711_defconfig"
+KERNEL_CONF_kernel8="bcm2711_defconfig"
+
+KERNEL_CROSS_arm="arm-linux-gnueabihf-"
+KERNEL_CROSS_arm64="aarch64-linux-gnu-"
+
+# global build vars
 kernelName=
+kernelArch=
+defConfig=
+crossPrefix=
 buildDir=
 modulesDir=
 modulesDirName=
-defConfig=
 piMakeOpts=
+CROSS_PREFIX=
+MAKE_OPTS="-C ${KERNEL_DIR}/${LINUX_DIR} ARCH=arm CROSS_COMPILE=${CROSS_PREFIX}"
 
 CHECK_MSG=
 INFO_MSG=
 
-MAKE_OPTS="-C ${KERNEL_DIR}/${LINUX_DIR} ARCH=arm CROSS_COMPILE=${CROSS_PREFIX}"
+# $1 kernel name from the KERNEL_LIST
+selectKernel()
+{
+	kernelName=$1
 
+	buildDir=${KERNEL_DIR}/${kernelName}/${BUILD_DIR}
+	modulesDir=${KERNEL_DIR}/${kernelName}/${MODULES_DIR}
+	piMakeOpts="O=${buildDir} INSTALL_MOD_PATH=${modulesDir}"
+
+	eval "kernelArch=\$KERNEL_ARCH_${kernelName}"
+	eval "defConfig=\$KERNEL_CONF_${kernelName}"
+	eval "crossPrefix=\$KERNEL_CROSS_${kernelArch}"
+
+	if [ "${CROSS_PATH}" == "" ]; then
+		CROSS_PREFIX=${crossPrefix}
+	else
+		CROSS_PREFIX="${CROSS_PATH}/${crossPrefix}"
+	fi
+	MAKE_OPTS="-C ${KERNEL_DIR}/${LINUX_DIR} ARCH=${kernelArch} CROSS_COMPILE=${CROSS_PREFIX}"
+
+	#NOTE: the value is available only after make modules_install
+	modulesDirName=$(ls $modulesDir/lib/modules)
+}
+
+#===============================================================================
 if [ "${KERNEL_DIR}" = "${KERNEL_DIR%%/kernel}" ]; then
 	# seach for 'rm -rf'
 	echo "KERNEL_DIR must end with '/kernel'"
 	exit 1
 fi
 
-# Detrmine kernel GIT version
+#===============================================================================
+# Determine kernel GIT version
 # - check wether firmware is rpi-update'd
 getKernelHash()
 {
@@ -190,56 +228,35 @@ prepareKernelDir()
 
 	return 0
 }
+#===============================================================================
 
-# Set params for PI <N>
-# $1 = N
-selectPI()
-{
-	if [ $1 -eq 1 ]; then
-		kernelName=kernel
-		buildDir=$KERNEL_DIR/$BUILD_DIR
-		modulesDir=$KERNEL_DIR/$MODULES_DIR
-		defConfig=$PI1_CONF
-	else
-		kernelName=kernel7
-		buildDir=$KERNEL_DIR/${BUILD_DIR}7
-		modulesDir=$KERNEL_DIR/${MODULES_DIR}7
-		defConfig=$PI2_CONF
-	fi
-
-	piMakeOpts="O=${buildDir} INSTALL_MOD_PATH=${modulesDir}"
-
-	#NOTE: the value is available only after make modules_install
-	modulesDirName=$(ls $modulesDir/lib/modules)
-}
-
-# $1 = 1|2 (PI1 or PI2)
+# $1 = kernel name from the KERNEL_LIST
 makeDefConf()
 {
-	selectPI $1
+	selectKernel $1
 	if [ ! -f $buildDir/.config ]; then
-		echo "Making defconfig for PI$1"
+		echo "Making defconfig for kernel: $1"
 		make $MAKE_OPTS $piMakeOpts $defConfig
 	else
-		echo "No need of defconfig for PI$1"
+		echo "No need of defconfig for kernel: $1"
 	fi
 }
 
-# $1 = 1|2 (PI1 or PI2)
+# $1 = kernel name from the KERNEL_LIST
 enableModules()
 {
-	selectPI $1
+	selectKernel $1
 
 	addmods=${CONFIG_M[*]}
 	addmods=${addmods// /|}
 	grep -E '^#[[:space:]]*CONFIG_('$addmods').*$' ${buildDir}/.config
 	if [ $? -eq 0 ]; then
-		echo "Turning on the defined modules to be compiled for PI$1"
+		echo "Turning on the defined modules to be compiled for kernel: $1"
 		sed -ri 's/^#[[:space:]]*CONFIG_('$addmods').*$/CONFIG_\1=m/' ${buildDir}/.config
 
 		make $MAKE_OPTS $piMakeOpts oldconfig
 	else
-		echo "Nothing to re-config for PI$1"
+		echo "Nothing to re-config for kernel: $1"
 	fi
 }
 
@@ -284,21 +301,21 @@ dtbo-$(RPI_DT_OVERLAYS) += '${overlay}'.dtbo
 	done
 }
 
-# $1 = 1|2 (PI1 or PI2)
+# $1 = kernel name from the KERNEL_LIST
 makeAll()
 {
-	echo "`date`: Start building kernel and modules for $1"
-	selectPI $1
+	echo "`date`: Start building kernel and modules for kernel: $1"
+	selectKernel $1
 
 	make -j8 $MAKE_OPTS $piMakeOpts && \
 		make -j8 $MAKE_OPTS $piMakeOpts modules_install
 	local rc=$?
-	echo "`date`: Done building kernel and modules for $1 (rc=$rc)"
+	echo "`date`: Done building kernel and modules for kernel: $1 (rc=$rc)"
 
-	INFO_MSG="RPi $1 build cmd: make $MAKE_OPTS $piMakeOpts\n${INFO_MSG}"
+	INFO_MSG="Kernel '$1' build cmd: make $MAKE_OPTS $piMakeOpts\n${INFO_MSG}"
 
 	# check whether additional/required overlays and modules were built
-	selectPI $1		# for correct modulesDirName value
+	selectKernel $1		# for correct modulesDirName value
 	for overlay in $OVERLAYS; do
 		if [ ! -f $buildDir/arch/arm/boot/dts/overlays/${overlay}.dtbo ]; then
 			CHECK_MSG="Err:overlay:$buildDir/arch/arm/boot/dts/overlays/${overlay}.dtbo\n${CHECK_MSG}"
@@ -373,10 +390,11 @@ prepareExtra()
 	done
 }
 
+# $1 = kernel name from the KERNEL_LIST
 makeExtra()
 {
-	echo "`date`: Start building extra modules for $1"
-	selectPI $1
+	echo "`date`: Start building extra modules for kernel: $1"
+	selectKernel $1
 
 	for d in $IOTC_MODULES; do
 		cd $KERNEL_DIR/iotc/$d
@@ -387,66 +405,75 @@ makeExtra()
 	done
 }
 
-# install some items (e.g. dtbs) once
-INSTALL_ONCE=0
-
 cleanupModules()
 {
 	rm -rf $IMG_DIR/lib/modules/*
 }
 
-# $1 = 1|2 (PI1 or PI2)
+# install some items (e.g. dtbs) once
+installed_dtbs=0
+# $1 = kernel name from the KERNEL_LIST
 installAll()
 {
-	selectPI $1
+	selectKernel $1
 
 #	# For now just subst modules, dtbs and overlays
-	echo "Installing modules (to $modulesDirName), dtbs and overlays for $1"
+	echo "Installing modules (to ${modulesDirName}), dtbs and overlays for kernel: $1"
 #	rm -f $IMG_DIR/boot/overlays/*
 	# once
-	if [ $INSTALL_ONCE -eq 0 ]; then
-		INSTALL_ONCE=1
+	if [ ${installed_dtbs} -eq 0 ]; then
+		installed_dtbs=1
 		# dtbs
-		cp -f $buildDir/arch/arm/boot/dts/*.dtb $IMG_DIR/boot/
-		cp -f $buildDir/arch/arm/boot/dts/overlays/*.dtb* $IMG_DIR/boot/overlays/
+		cp -f ${buildDir}/arch/arm/boot/dts/*.dtb ${IMG_DIR}/boot/
+		cp -f ${buildDir}/arch/arm/boot/dts/overlays/*.dtb* ${IMG_DIR}/boot/overlays/
 
 		# README
-		cp -f $KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays/README $IMG_DIR/boot/overlays/
+		cp -f ${KERNEL_DIR}/${LINUX_DIR}/arch/arm/boot/dts/overlays/README ${IMG_DIR}/boot/overlays/
 	fi
 
 	# kernel
-	cp -f $IMG_DIR/boot/$kernelName.img $IMG_DIR/boot/$kernelName-backup.img
-	cp -f $buildDir/arch/arm/boot/zImage $IMG_DIR/boot/$kernelName.img
+	cp -f ${IMG_DIR}/boot/${kernelName}.img ${IMG_DIR}/boot/${kernelName}-backup.img
+	cp -f ${buildDir}/arch/arm/boot/zImage ${IMG_DIR}/boot/${kernelName}.img
 
 	# modules
 	#rm -rf $IMG_DIR/lib/modules/$modulesDirName
-	cp -R --no-dereference $modulesDir/lib/modules/$modulesDirName $IMG_DIR/lib/modules/
-	rm -f $IMG_DIR/lib/modules/$modulesDirName/build $IMG_DIR/lib/modules/$modulesDirName/source
+	cp -R --no-dereference ${modulesDir}/lib/modules/${modulesDirName} ${IMG_DIR}/lib/modules/
+	rm -f ${IMG_DIR}/lib/modules/${modulesDirName}/build ${IMG_DIR}/lib/modules/${modulesDirName}/source
 }
 
 getKernelHash
 prepareKernelDir || exit 1
-makeDefConf 1 || exit 1
-makeDefConf 2 || exit 1
-enableModules 1 || exit 1
-enableModules 2 || exit 1
+
+# make defconfigs, enable modules in the configs
+for kern in ${KERNEL_LIST}; do
+	makeDefConf ${kern} || exit 1
+	enableModules ${kern} || exit 1
+done
 patchSources || exit 1
+# overlays for arm64 is reference for arm
 addOverlays
-makeAll 1 || exit 1
-makeAll 2 || exit 1
+
+for kern in ${KERNEL_LIST}; do
+	makeAll ${kern} || exit 1
+done
 INFO_MSG="${INFO_MSG}\nGet headers: use INSTALL_HDR_PATH with headers_install"
 prepareExtra || exit 1
-makeExtra 1 || exit 1
-makeExtra 2 || exit 1
-cleanupModules || exit 1
-installAll 1
-installAll 2
 
-if [ ! -z "$CHECK_MSG" ]; then
-	echo -e "$CHECK_MSG"
+for kern in ${KERNEL_LIST}; do
+	makeExtra ${kern} || exit 1
+done
+
+cleanupModules || exit 1
+
+for kern in ${KERNEL_LIST}; do
+	installAll ${kern}
+done
+
+if [ ! -z "${CHECK_MSG}" ]; then
+	echo -e "${CHECK_MSG}"
 fi
-if [ ! -z "$INFO_MSG" ]; then
-	echo -e "$INFO_MSG"
+if [ ! -z "{$INFO_MSG}" ]; then
+	echo -e "${INFO_MSG}"
 fi
 
 exit 0
