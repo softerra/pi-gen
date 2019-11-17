@@ -73,7 +73,7 @@ if [ "${CONTAINER_RUNNING}" != "" ]; then
 fi
 
 mkdir -p work
-buildCommand="dpkg-reconfigure qemu-user-static && ./build.sh ${BUILD_OPTS}; \
+buildCommand="dpkg-reconfigure qemu-user-static || echo \"Warning!\"; ls /proc/sys/fs/binfmt_misc; ./build.sh ${BUILD_OPTS}; \
 				BUILD_RC=\$?; \
 				rsync -av work/build.log deploy/; \
 				iotcrafter/postbuild.sh \${BUILD_RC}"
