@@ -49,12 +49,18 @@ echo "Building Raspbian image.."
 
 if [ -f config ]; then
 	source config
+else
+	echo "config need to be present in $(pwd)"
+	exit 1
 fi
 
 if [ -z "${IMG_NAME}" ]; then
 	echo "IMG_NAME not set in 'config'" 1>&2
 	echo 1>&2
 fi
+
+# Ensure the Git Hash is recorded before entering the docker container
+GIT_HASH=${GIT_HASH:-"$(git rev-parse HEAD)"}
 
 kernelMount=""
 if [ -n "${IOTCRAFTER_KERNEL_DIR}" ]; then
@@ -87,6 +93,7 @@ if [ "${CONTAINER_EXISTS}" != "" ] && [ "${CONTINUE}" = "1" ]; then
 		--name "${CONTAINER_NAME}_cont" \
 		${kernelMount} \
 		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
+		-e "GIT_HASH=${GIT_HASH}" \
 		${DOCKER_IMG}:${DOCKER_IMG_TAG} \
 		bash -o pipefail -c "${buildCommand}" &
 	wait "$!"
@@ -110,6 +117,7 @@ else
 		--name "${CONTAINER_NAME}" \
 		${kernelMount} \
 		-v "$(pwd):/${BUILD_SYS}" -w "/${BUILD_SYS}" \
+		-e "GIT_HASH=${GIT_HASH}" \
 		${DOCKER_IMG}:${DOCKER_IMG_TAG} \
 		bash -o pipefail -c "${buildCommand}" &
 	wait "$!"
