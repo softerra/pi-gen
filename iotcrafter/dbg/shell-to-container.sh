@@ -4,7 +4,7 @@ cd $(cd $(dirname $0); pwd)/../..
 
 BUILD_SYS="pi-gen"
 DOCKER_IMG="${BUILD_SYS}-iotcrafter"
-DOCKER_IMG_TAG="stretch"
+DOCKER_IMG_TAG="buster"
 DOCKER="docker"
 DOCKER_CONTAINER_SUFFIX=${1:-iotc}
 
@@ -30,7 +30,7 @@ fi
 mkdir -p work
 
 if [ "$CONTAINER_EXISTS" != "" ]; then
-	$DOCKER run -it --privileged \
+	$DOCKER run -ti --rm --privileged \
 		--volumes-from="${CONTAINER_NAME}" \
 		--name "${CONTAINER_NAME}_debug" \
 		-e IMG_NAME=${IMG_NAME} \

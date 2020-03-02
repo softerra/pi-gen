@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 #Run as: ./build-docker-iotcrafter.sh [docker] [pi-gen build opts..]
+#with logging console output: ./build-docker-iotcrafter.sh [docker] [pi-gen build opts..] 2>&1 | tee docker-build.log
 
 cd $(cd $(dirname $0); pwd)/..
 
