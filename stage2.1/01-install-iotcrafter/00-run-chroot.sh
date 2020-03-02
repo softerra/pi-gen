@@ -1,6 +1,17 @@
 #!/bin/bash
 
-REQ_NODEV="v8.11.2"
+#REQ_NODEV="v8.11.2"
+REQ_NODEV_LATEST="v10"
+
+if [ ! -v REQ_NODEV ]; then
+	# exact version is preferrable, if not set - fall back on LATEST
+	REQ_NODEV=`wget -O - http://nodejs.org/dist/latest-${REQ_NODEV_LATEST}.x/SHASUMS256.txt \
+		| sed -n 's/^[^[:space:]]*[[:space:]]*node-\('${REQ_NODEV_LATEST}'[^-]*\)-.*$/\1/ p' \
+		| head -n 1`
+	echo "Installing latest nodejs ${REQ_NODEV_LATEST}.x: ${REQ_NODEV}"
+else
+	echo "Installing nodejs ${REQ_NODEV}"
+fi
 
 # need to remove and 'install' over
 apt-get -y --force-yes remove nodejs
