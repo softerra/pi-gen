@@ -2,7 +2,7 @@
 
 # install init script
 # ver.1
-IOTC_INIT_REV=065b497979c9b5fe028d6523678c7cfe6206b8a3
+IOTC_INIT_REV=7ffc3da47a4b183d2ed59a46700983abb18bc861
 wget -P ${ROOTFS_DIR}/opt/iotc/bin/ https://raw.githubusercontent.com/softerra/iotc_scripts/${IOTC_INIT_REV}/board/iotc_init.sh
 sed -i 's/^\(iotc_init_version=\).*$/\1"'${IOTC_INIT_REV}'"/' ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
 chmod 755 ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
@@ -34,10 +34,10 @@ if [ -f ${ROOTFS_DIR}/usr/lib/raspi-config/init_resize.sh ] &&
 	fi
 
 # Enable UART as need
-if [ ! -z "$IOTCRAFTER_ENABLE_UART" ]; then
-	sed -r -i 's/^#?enable_uart=.*$/enable_uart='$IOTCRAFTER_ENABLE_UART'/' ${ROOTFS_DIR}/boot/config.txt
+if [ ! -z "${IOTCRAFTER_ENABLE_UART}" ]; then
+	sed -r -i 's/^#?enable_uart=.*$/enable_uart='${IOTCRAFTER_ENABLE_UART}'/' ${ROOTFS_DIR}/boot/config.txt
 	grep -q '^enable_uart=' ${ROOTFS_DIR}/boot/config.txt || \
-		echo "echo 'enable_uart='$IOTCRAFTER_ENABLE_UART >> ${ROOTFS_DIR}/boot/config.txt" | /bin/bash
+		sed -i '$ a \enable_uart='${IOTCRAFTER_ENABLE_UART} ${ROOTFS_DIR}/boot/config.txt
 fi
 
 # Add configuration for possible eth0 and eth1 interfaces
