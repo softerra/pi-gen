@@ -2,7 +2,7 @@
 
 # install init script
 # ver.1
-IOTC_INIT_REV=7ffc3da47a4b183d2ed59a46700983abb18bc861
+IOTC_INIT_REV=22b0a544b139aff5574c6801e796914eb7241c54
 wget -P ${ROOTFS_DIR}/opt/iotc/bin/ https://raw.githubusercontent.com/softerra/iotc_scripts/${IOTC_INIT_REV}/board/iotc_init.sh
 sed -i 's/^\(iotc_init_version=\).*$/\1"'${IOTC_INIT_REV}'"/' ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
 chmod 755 ${ROOTFS_DIR}/opt/iotc/bin/iotc_init.sh
