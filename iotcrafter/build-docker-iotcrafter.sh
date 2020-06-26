@@ -23,18 +23,24 @@ if ! ${DOCKER} ps >/dev/null; then
 	exit 1
 fi
 
+# ./build-docker-iotcrafter.sh [build-opts | "docker" ["docker-opts"]], e.g.:
+#    ./build-docker-iotcrafter.sh
+#    ./build-docker-iotcrafter.sh -c alt.conf
+#    ./build-docker-iotcrafter.sh docker
+#    ./build-docker-iotcrafter.sh docker --no-cache
+
 docker_only=0
 if [ "$1" = "docker" ]; then
-	docker_only=1
 	echo "(Re-)building docker image only.."
+	docker_only=1
+	DOCKER_OPTS=$2 #e.g.--no-cache
 	${DOCKER} image rm "${DOCKER_IMG}:${DOCKER_IMG_TAG}"
-	shift
 else
 	echo "Building docker image as need.."
 fi
-BUILD_OPTS="$*"
 
 ${DOCKER} build \
+	$DOCKER_OPTS \
 	--build-arg DEB_DISTRO=${DOCKER_IMG_TAG} \
 	-t "${DOCKER_IMG}:${DOCKER_IMG_TAG}" \
 	-f iotcrafter/Dockerfile.iotcrafter iotcrafter/
@@ -44,6 +50,8 @@ ${DOCKER} rmi $(docker images -f "dangling=true" -q)
 if [ "${docker_only}" = "1" -o $RC -ne 0 ]; then
 	exit $RC
 fi
+
+BUILD_OPTS="$*"
 
 set -e
 echo "Building Raspbian image.."
