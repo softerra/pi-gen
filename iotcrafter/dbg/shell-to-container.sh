@@ -23,8 +23,9 @@ CONTAINER_EXISTS=$($DOCKER ps -a --filter name="$CONTAINER_NAME" -q)
 CONTAINER_RUNNING=$($DOCKER ps --filter name="$CONTAINER_NAME" -q)
 
 if [ "$CONTAINER_RUNNING" != "" ]; then
-	echo "The build is already running in container $CONTAINER_NAME. Aborting."
-	exit 1
+	echo "The build is already running, shell to running container ${CONTAINER_NAME}..."
+	${DOCKER} exec -ti ${CONTAINER_NAME} /bin/bash
+	exit 0
 fi
 
 mkdir -p work
