@@ -1,8 +1,8 @@
 diff --git a/drivers/iio/humidity/si7020.c b/drivers/iio/humidity/si7020.c
-index 1b2ec8df1..f30b4ea78 100644
+index 1b2ec8df1..015b34a59 100644
 --- a/drivers/iio/humidity/si7020.c
 +++ b/drivers/iio/humidity/si7020.c
-@@ -34,6 +34,8 @@
+@@ -34,10 +34,16 @@
  #include <linux/iio/iio.h>
  #include <linux/iio/sysfs.h>
  
@@ -11,7 +11,15 @@ index 1b2ec8df1..f30b4ea78 100644
  /* Measure Relative Humidity, Hold Master Mode */
  #define SI7020CMD_RH_HOLD	0xE5
  /* Measure Temperature, Hold Master Mode */
-@@ -50,12 +52,23 @@ static int si7020_read_raw(struct iio_dev *indio_dev,
+ #define SI7020CMD_TEMP_HOLD	0xE3
++/* Measure Relative Humidity, NO Hold Master Mode */
++#define SI7020CMD_RH_NOHOLD	0xF5
++/* Measure Temperature, NO Hold Master Mode */
++#define SI7020CMD_TEMP_NOHOLD	0xF3
+ /* Software Reset */
+ #define SI7020CMD_RESET		0xFE
+ 
+@@ -50,12 +56,32 @@ static int si7020_read_raw(struct iio_dev *indio_dev,
  
  	switch (mask) {
  	case IIO_CHAN_INFO_RAW:
@@ -25,15 +33,24 @@ index 1b2ec8df1..f30b4ea78 100644
 +			 __be32 buf = 0;
 +
 +			ret = i2c_smbus_write_byte(*client, chan->type == IIO_TEMP ?
-+							SI7020CMD_TEMP_HOLD :
-+							SI7020CMD_RH_HOLD);
++							SI7020CMD_TEMP_NOHOLD :
++							SI7020CMD_RH_NOHOLD);
 +			if (ret)
 +				return ret;
-+			usleep_range(86000, 90000);
++
++			usleep_range(51000, 51100);
 +
 +			ret = i2c_master_recv(*client, (u8 *)&buf, 3);
-+			if (ret < 0)
-+				return ret;
++			if (ret < 0) {
++				usleep_range(51000, 51100);
++				ret = i2c_master_recv(*client, (u8 *)&buf, 3);
++				if (ret < 0) {
++					dev_err(&indio_dev->dev,
++						"failed read(2) chan: %s: %d\n",
++						chan->type == IIO_TEMP ? "TEMP" : "RH", ret);
++					return ret;
++				}
++			}
 +
 +			ret = be32_to_cpu(buf) >> 16; // remove odd lsb and crc byte
 +		}
@@ -41,7 +58,7 @@ index 1b2ec8df1..f30b4ea78 100644
  		*val = ret >> 2;
  		/*
  		 * Humidity values can slightly exceed the 0-100%RH
-@@ -118,8 +131,7 @@ static int si7020_probe(struct i2c_client *client,
+@@ -118,8 +144,7 @@ static int si7020_probe(struct i2c_client *client,
  	int ret;
  
  	if (!i2c_check_functionality(client->adapter,
@@ -51,3 +68,11 @@ index 1b2ec8df1..f30b4ea78 100644
  		return -EOPNOTSUPP;
  
  	/* Reset device, loads default settings. */
+@@ -143,6 +168,7 @@ static int si7020_probe(struct i2c_client *client,
+ 	indio_dev->channels = si7020_channels;
+ 	indio_dev->num_channels = ARRAY_SIZE(si7020_channels);
+ 
++	dev_info(&indio_dev->dev, "si7020-mod-iotcrafter-r5");
+ 	return devm_iio_device_register(&client->dev, indio_dev);
+ }
+ 
