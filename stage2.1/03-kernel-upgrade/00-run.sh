@@ -39,6 +39,7 @@ KERNEL_CROSS_arm64="aarch64-linux-gnu-"
 
 # global build vars
 kernelName=
+kernelDir=
 kernelArch=
 defConfig=
 crossPrefix=
@@ -47,6 +48,7 @@ modulesDir=
 modulesDirName=
 piMakeOpts=
 CROSS_PREFIX=
+#kernelHeadersDir=
 MAKE_OPTS="-C ${KERNEL_DIR}/${LINUX_DIR} ARCH=arm CROSS_COMPILE=${CROSS_PREFIX}"
 
 CHECK_MSG=
@@ -57,9 +59,12 @@ selectKernel()
 {
 	kernelName=$1
 
-	buildDir=${KERNEL_DIR}/${kernelName}/${BUILD_DIR}
-	modulesDir=${KERNEL_DIR}/${kernelName}/${MODULES_DIR}
+	kernelDir=${KERNEL_DIR}/${kernelName}
+	buildDir=${kernelDir}/${BUILD_DIR}
+	modulesDir=${kernelDir}/${MODULES_DIR}
 	piMakeOpts="O=${buildDir} INSTALL_MOD_PATH=${modulesDir}"
+	#kernelHeadersDir=${KERNEL_DIR}/kernel-headers/${KERNEL_HASH}
+	#piMakeOpts="O=${buildDir} INSTALL_MOD_PATH=${modulesDir} INSTALL_HDR_PATH=${kernelHeadersDir}"
 
 	eval "kernelArch=\$KERNEL_ARCH_${kernelName}"
 	eval "defConfig=\$KERNEL_CONF_${kernelName}"
@@ -304,13 +309,14 @@ dtbo-$(RPI_DT_OVERLAYS) += '${overlay}'.dtbo
 # $1 = kernel name from the KERNEL_LIST
 makeAll()
 {
-	echo "`date`: Start building kernel and modules for kernel: $1"
+	echo "`date`: Start building kernel, modules and packages for kernel: $1"
 	selectKernel $1
 
 	make -j8 $MAKE_OPTS $piMakeOpts && \
-		make -j8 $MAKE_OPTS $piMakeOpts modules_install
+		make -j8 $MAKE_OPTS $piMakeOpts modules_install && \ # headers_install
+		make -j8 $MAKE_OPTS $piMakeOpts bindeb-pkg
 	local rc=$?
-	echo "`date`: Done building kernel and modules for kernel: $1 (rc=$rc)"
+	echo "`date`: Done building kernel, modules and packages for kernel: $1 (rc=$rc)"
 
 	INFO_MSG="Kernel '$1' build cmd: make $MAKE_OPTS $piMakeOpts\n${INFO_MSG}"
 
@@ -439,6 +445,11 @@ installAll()
 	#rm -rf $IMG_DIR/lib/modules/$modulesDirName
 	cp -R --no-dereference ${modulesDir}/lib/modules/${modulesDirName} ${IMG_DIR}/lib/modules/
 	rm -f ${IMG_DIR}/lib/modules/${modulesDirName}/build ${IMG_DIR}/lib/modules/${modulesDirName}/source
+
+	# deploy kernel debs
+	debDir=${DEPLOY_DIR}/${IMG_DATE}-${IMG_NAME}-deb
+	mkdir -p ${debDir}
+	cp -f ${kernelDir}/*.deb ${debDir}
 }
 
 getKernelHash

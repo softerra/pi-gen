@@ -34,6 +34,9 @@ RUN apt-get -y install \
 		fakeroot build-essential ncurses-dev libssl-dev bc kmod \
 		xz-utils flex libelf-dev bison
 
+RUN apt-get -y install \
+		debhelper git ssh cpio
+
 RUN if [ "$DEB_DISTRO" = "buster" ]; then \
 			dpkg --add-architecture arm64 \
 			&& apt-get -y update \
