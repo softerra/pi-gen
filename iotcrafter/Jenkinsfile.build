@@ -164,6 +164,14 @@ EOF
 				# save pi-gen config for reference
 				cp -f ../config \${TAG_DIR}/\${RESULT_ZIP_FNAME}.config
 
+				# deploy kernel deb packages
+				DEB_DIR="${imgDate}-${imgName}-deb"
+				if [ -d "\${DEB_DIR}" ]; then
+					EXTRA_DIR="${deploy['base']}/extra/deb"
+					mkdir -p \${EXTRA_DIR}
+					cp -R \${DEB_DIR} \${EXTRA_DIR}/
+				fi
+
 				# deploy img for old installer
 				if [ "${params.isOldRelease}" = "true" ]; then
 					mkdir -p ${deploy['old_base']}/\${CUR_DATE}
