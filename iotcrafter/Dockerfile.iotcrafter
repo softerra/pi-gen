@@ -1,4 +1,4 @@
-ARG DEB_DISTRO=stretch
+ARG DEB_DISTRO=buster
 FROM local/cross-build-armv7l:$DEB_DISTRO
 
 ARG DEB_DISTRO
@@ -6,10 +6,11 @@ ARG DEB_DISTRO
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get -y update && \
-	apt-get -y install \
+	apt-get -y install --no-install-recommends \
 			git vim parted \
 			quilt coreutils debootstrap zerofree zip dosfstools \
-			bsdtar libcap2-bin rsync grep udev xz-utils curl xxd file kmod bc
+			bsdtar libcap2-bin rsync grep udev xz-utils curl xxd file kmod bc \
+			binfmt-support ca-certificates
 
 # https://github.com/RPi-Distro/pi-gen/issues/271
 # use qemu-user-static:i386 for buster (assume host is 64 bits)
