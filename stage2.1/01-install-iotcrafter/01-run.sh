@@ -12,6 +12,9 @@ sed -i -e 's/"image-build"[^"]*"[^"]*\(".*\)$/"image-build": "'$IMG_NAME'\1/' $V
 on_chroot << EOF
 set -e
 
+#no deb package, install the lib for mysensors support
+pip3 install pymysensors
+
 uname -a # check cpu
 
 wget -qO - http://download.iotcrafter.com/iotc/iotcrafter.gpg.key | apt-key add -
