@@ -5,6 +5,10 @@ install -m 644 files/raspi.list "${ROOTFS_DIR}/etc/apt/sources.list.d/"
 sed -i "s/RELEASE/${RELEASE}/g" "${ROOTFS_DIR}/etc/apt/sources.list"
 sed -i "s/RELEASE/${RELEASE}/g" "${ROOTFS_DIR}/etc/apt/sources.list.d/raspi.list"
 
+MIRROR=${RASPBIAN_REPO_MIRROR:-http://raspbian.raspberrypi.org/raspbian/}
+MIRROR=${MIRROR//\//\\\/}
+sed -i "s/MIRROR/${MIRROR}/g" "${ROOTFS_DIR}/etc/apt/sources.list"
+
 if [ -n "$APT_PROXY" ]; then
 	install -m 644 files/51cache "${ROOTFS_DIR}/etc/apt/apt.conf.d/51cache"
 	sed "${ROOTFS_DIR}/etc/apt/apt.conf.d/51cache" -i -e "s|APT_PROXY|${APT_PROXY}|"
