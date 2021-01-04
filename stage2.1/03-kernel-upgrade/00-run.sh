@@ -277,7 +277,7 @@ patchSources()
 addOverlays()
 {
 	local overlayDir=$MY_DIR/overlays
-	local targetOverlayDir=$KERNEL_DIR/$LINUX_DIR/arch/arm/boot/dts/overlays
+	local targetOverlayDir=$KERNEL_DIR/$LINUX_DIR/arch/${kernelArch}/boot/dts/overlays
 
 	for overlay in $OVERLAYS; do
 		echo "Adding overlay ${overlay}"
@@ -312,8 +312,9 @@ makeAll()
 	echo "`date`: Start building kernel, modules and packages for kernel: $1"
 	selectKernel $1
 
+	# and '&& headers_install' if need
 	make -j8 $MAKE_OPTS $piMakeOpts && \
-		make -j8 $MAKE_OPTS $piMakeOpts modules_install && \ # headers_install
+		make -j8 $MAKE_OPTS $piMakeOpts modules_install && \
 		make -j8 $MAKE_OPTS $piMakeOpts bindeb-pkg
 	local rc=$?
 	echo "`date`: Done building kernel, modules and packages for kernel: $1 (rc=$rc)"
@@ -323,8 +324,8 @@ makeAll()
 	# check whether additional/required overlays and modules were built
 	selectKernel $1		# for correct modulesDirName value
 	for overlay in $OVERLAYS; do
-		if [ ! -f $buildDir/arch/arm/boot/dts/overlays/${overlay}.dtbo ]; then
-			CHECK_MSG="Err:overlay:$buildDir/arch/arm/boot/dts/overlays/${overlay}.dtbo\n${CHECK_MSG}"
+		if [ ! -f $buildDir/arch/${kernelArch}/boot/dts/overlays/${overlay}.dtbo ]; then
+			CHECK_MSG="Err:overlay:$buildDir/arch/${kernelArch}/boot/dts/overlays/${overlay}.dtbo\n${CHECK_MSG}"
 		fi
 	done
 	for mod_path in $check_modules; do
@@ -426,20 +427,24 @@ installAll()
 #	# For now just subst modules, dtbs and overlays
 	echo "Installing modules (to ${modulesDirName}), dtbs and overlays for kernel: $1"
 #	rm -f $IMG_DIR/boot/overlays/*
-	# once
+	# once (from first 'arm' arch)
 	if [ ${installed_dtbs} -eq 0 ]; then
 		installed_dtbs=1
 		# dtbs
-		cp -f ${buildDir}/arch/arm/boot/dts/*.dtb ${IMG_DIR}/boot/
-		cp -f ${buildDir}/arch/arm/boot/dts/overlays/*.dtb* ${IMG_DIR}/boot/overlays/
+		cp -f ${buildDir}/arch/${kernelArch}/boot/dts/*.dtb ${IMG_DIR}/boot/
+		cp -f ${buildDir}/arch/${kernelArch}/boot/dts/overlays/*.dtb* ${IMG_DIR}/boot/overlays/
 
 		# README
-		cp -f ${KERNEL_DIR}/${LINUX_DIR}/arch/arm/boot/dts/overlays/README ${IMG_DIR}/boot/overlays/
+		cp -f ${KERNEL_DIR}/${LINUX_DIR}/arch/${kernelArch}/boot/dts/overlays/README ${IMG_DIR}/boot/overlays/
 	fi
 
 	# kernel
 	cp -f ${IMG_DIR}/boot/${kernelName}.img ${IMG_DIR}/boot/${kernelName}-backup.img
-	cp -f ${buildDir}/arch/arm/boot/zImage ${IMG_DIR}/boot/${kernelName}.img
+	if [ $kernelArch == "arm64" ]; then
+		cp -f ${buildDir}/arch/arm64/boot/Image.gz ${IMG_DIR}/boot/${kernelName}.img
+	else
+		cp -f ${buildDir}/arch/arm/boot/zImage ${IMG_DIR}/boot/${kernelName}.img
+	fi
 
 	# modules
 	#rm -rf $IMG_DIR/lib/modules/$modulesDirName
