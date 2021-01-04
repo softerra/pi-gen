@@ -22,15 +22,6 @@ RUN if [ "$DEB_DISTRO" = "buster" ]; then \
 		apt-get install -y qemu-user-static; \
 	fi
 
-RUN if [ "$DEB_DISTRO" = "jessie" ]; then \
-		sed -i '1 i\\
-deb http://deb.debian.org/debian jessie-backports main\
-' /etc/apt/sources.list \
-		&& apt-get update \
-		&& apt-get install -y e2fslibs=1.43.3* e2fsprogs=1.43.3* \
-		&& sed -i '1 d' /etc/apt/sources.list; \
-	fi
-
 RUN apt-get -y install \
 		fakeroot build-essential ncurses-dev libssl-dev bc kmod \
 		xz-utils flex libelf-dev bison
