@@ -24,7 +24,7 @@ properties([disableConcurrentBuilds(),
 				booleanParam(defaultValue: true, description: 'do apt-get upgrade', name: 'sysUpgrade'),
 				booleanParam(defaultValue: false, description: 'do rpi-update', name: 'rpiUpdate'),
 
-				booleanParam(defaultValue: false, description: 'complete rebuild of kernel', name: 'kenelRebuild'),
+				booleanParam(defaultValue: false, description: 'complete rebuild of kernel', name: 'kernelRebuild'),
 				string(defaultValue: '', description: 'build exact kernel revision', name: 'kernelCommit'),
 				booleanParam(defaultValue: false, description: 'try continuefailed build in previous container', name: 'continue'),
 				booleanParam(defaultValue: false, description: 'build image with UART enabled', name: 'enableUart'),
