@@ -439,7 +439,7 @@ installAll()
 	fi
 
 	# kernel
-	cp -f ${IMG_DIR}/boot/${kernelName}.img ${IMG_DIR}/boot/${kernelName}-backup.img
+	#cp -f ${IMG_DIR}/boot/${kernelName}.img ${IMG_DIR}/boot/${kernelName}-backup.img
 	if [ $kernelArch == "arm64" ]; then
 		cp -f ${buildDir}/arch/arm64/boot/Image.gz ${IMG_DIR}/boot/${kernelName}.img
 	else
